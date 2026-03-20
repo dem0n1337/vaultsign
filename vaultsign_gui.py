@@ -221,14 +221,6 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.vault_status_label.add_css_class("dim-label")
         status_group.add(self.vault_status_label)
 
-        self.cert_status_label = Gtk.Label(label="No certificate")
-        self.cert_status_label.set_halign(Gtk.Align.START)
-        self.cert_status_label.set_margin_start(12)
-        self.cert_status_label.set_margin_end(12)
-        self.cert_status_label.set_margin_top(2)
-        self.cert_status_label.set_margin_bottom(6)
-        self.cert_status_label.add_css_class("dim-label")
-        status_group.add(self.cert_status_label)
 
         # Hidden log buffer (accessible via hamburger menu -> Copy/Save Log)
         self.log_buffer = Gtk.TextBuffer()
@@ -236,8 +228,8 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
         # Startup: check existing session and start timers
         GLib.idle_add(self._check_existing_session)
-        self._update_cert_status()
-        GLib.timeout_add_seconds(60, self._update_cert_status)
+
+
         GLib.timeout_add_seconds(120, self._update_token_status)
         GLib.timeout_add_seconds(120, self._check_and_renew_token)
         self._update_vault_status()
@@ -265,24 +257,6 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.log_buffer.insert(end_iter, text + "\n")
 
     # --- Status monitoring ---
-
-    def _update_cert_status(self) -> bool:
-        """Update certificate expiry countdown. Returns True to keep timer running."""
-        from cert_utils import parse_cert_expiry
-        ssh_key = os.path.expanduser(self.ssh_key_row.get_text().strip())
-        cert_path = ssh_key + "-cert.pub"
-        info = parse_cert_expiry(cert_path)
-        if info is None:
-            self.cert_status_label.set_text("No certificate")
-            self.cert_status_label.remove_css_class("error")
-            return True
-        if info["is_expired"]:
-            self.cert_status_label.set_text("Certificate EXPIRED")
-            self.cert_status_label.add_css_class("error")
-        else:
-            self.cert_status_label.set_text(f"Certificate valid for {info['remaining_human']}")
-            self.cert_status_label.remove_css_class("error")
-        return True
 
     def _update_token_status(self) -> bool:
         """Check vault token in background and update header indicator."""
@@ -316,7 +290,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
                     mins = (info["ttl"] % 3600) // 60
                     self._append_log(f"Existing valid token found (TTL: {hours}h {mins}m)")
                     self.status_label.set_text(f"Authenticated (token: {hours}h {mins}m remaining)")
-                    self._update_cert_status()
+            
                     self._update_token_status()
                 else:
                     self._append_log("No valid token found. Please authenticate.")
@@ -610,7 +584,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
                 self.cancel_button.set_sensitive(False)
                 if success:
                     self.status_label.set_text("Authentication successful.")
-                    self._update_cert_status()
+            
                     self._update_token_status()
                 else:
                     first_line = output.split("\n")[0][:80]
