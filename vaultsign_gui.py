@@ -37,7 +37,8 @@ class VaultSignWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_title("VaultSign")
-        self.set_default_size(480, 520)
+        self.set_default_size(360, 550)
+        self.set_resizable(False)
 
         self._is_first_run = not CONFIG_FILE.exists()
         self.config = load_config()
@@ -77,6 +78,11 @@ class VaultSignWindow(Adw.ApplicationWindow):
         theme_section.append("Light theme", "win.theme::light")
         theme_section.append("Dark theme", "win.theme::dark")
         menu.append_section("Theme", theme_section)
+
+        # Vault status section (dynamic, updated by _update_vault_status)
+        self._vault_status_menu = Gio.Menu()
+        self._vault_status_menu.append("Vault: checking...", None)
+        menu.append_section(None, self._vault_status_menu)
 
         log_section = Gio.Menu()
         log_section.append("Copy Log to Clipboard", "win.copy-log")
@@ -199,29 +205,6 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.save_button.connect("clicked", self._on_save_settings)
         button_box.append(self.save_button)
 
-        # --- Status group ---
-        status_group = Adw.PreferencesGroup(title="Status")
-        main_box.append(status_group)
-
-        self.status_label = Gtk.Label(label="Ready")
-        self.status_label.set_halign(Gtk.Align.START)
-        self.status_label.set_margin_start(12)
-        self.status_label.set_margin_end(12)
-        self.status_label.set_margin_top(6)
-        self.status_label.set_margin_bottom(6)
-        self.status_label.add_css_class("dim-label")
-        status_group.add(self.status_label)
-
-        self.vault_status_label = Gtk.Label(label="Vault: checking...")
-        self.vault_status_label.set_halign(Gtk.Align.START)
-        self.vault_status_label.set_margin_start(12)
-        self.vault_status_label.set_margin_end(12)
-        self.vault_status_label.set_margin_top(2)
-        self.vault_status_label.set_margin_bottom(2)
-        self.vault_status_label.add_css_class("dim-label")
-        status_group.add(self.vault_status_label)
-
-
         # Hidden log buffer (accessible via hamburger menu -> Copy/Save Log)
         self.log_buffer = Gtk.TextBuffer()
         self.log_buffer.set_text("")
@@ -289,7 +272,6 @@ class VaultSignWindow(Adw.ApplicationWindow):
                     hours = info["ttl"] // 3600
                     mins = (info["ttl"] % 3600) // 60
                     self._append_log(f"Existing valid token found (TTL: {hours}h {mins}m)")
-                    self.status_label.set_text(f"Authenticated (token: {hours}h {mins}m remaining)")
             
                     self._update_token_status()
                 else:
@@ -323,12 +305,13 @@ class VaultSignWindow(Adw.ApplicationWindow):
         def _check():
             status = check_vault_status(self._collect_config())
             def _update():
+                self._vault_status_menu.remove_all()
                 if status is None:
-                    self.vault_status_label.set_text("Vault: unreachable")
+                    self._vault_status_menu.append("Vault: unreachable", None)
                 elif status["sealed"]:
-                    self.vault_status_label.set_text("Vault: sealed")
+                    self._vault_status_menu.append("Vault: sealed", None)
                 else:
-                    self.vault_status_label.set_text(f"Vault: ok (v{status['version']})")
+                    self._vault_status_menu.append(f"Vault: ok (v{status['version']})", None)
                 return False
             GLib.idle_add(_update)
         threading.Thread(target=_check, daemon=True).start()
@@ -490,7 +473,6 @@ class VaultSignWindow(Adw.ApplicationWindow):
         active = self.config.get("active_profile", "default")
         save_profile(self.config, active, profile_data)
         save_config(self.config)
-        self.status_label.set_text("Settings saved.")
         toast = Adw.Toast(title="Settings saved")
         self.toast_overlay.add_toast(toast)
 
@@ -498,7 +480,6 @@ class VaultSignWindow(Adw.ApplicationWindow):
         """Request cancellation of the running auth flow."""
         request_cancel()
         self.cancel_button.set_sensitive(False)
-        self.status_label.set_text("Cancelling\u2026")
 
     def _show_first_run_wizard(self):
         dialog = Adw.MessageDialog(
@@ -553,7 +534,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.auth_button.set_sensitive(False)
         self.cancel_button.set_sensitive(True)
         self.log_buffer.set_text("")
-        self.status_label.set_text("Authenticating\u2026")
+        self.toast_overlay.add_toast(Adw.Toast(title="Authenticating\u2026"))
 
         def step_callback(step_name: str, success: bool, output: str) -> None:
             """Called from worker thread after each step completes."""
@@ -565,7 +546,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
                 self._append_log(f"[{step_name}] {status}")
                 if output:
                     self._append_log(output)
-                self.status_label.set_text(label)
+                self.toast_overlay.add_toast(Adw.Toast(title=label))
                 return False  # Remove idle source
 
             GLib.idle_add(_update_ui)
@@ -583,12 +564,11 @@ class VaultSignWindow(Adw.ApplicationWindow):
                 self.auth_button.set_sensitive(True)
                 self.cancel_button.set_sensitive(False)
                 if success:
-                    self.status_label.set_text("Authentication successful.")
-            
+                    self.toast_overlay.add_toast(Adw.Toast(title="Authentication successful."))
                     self._update_token_status()
                 else:
                     first_line = output.split("\n")[0][:80]
-                    self.status_label.set_text(f"Error: {first_line}")
+                    self.toast_overlay.add_toast(Adw.Toast(title=f"Error: {first_line}"))
                 return False
 
             GLib.idle_add(_finish)
