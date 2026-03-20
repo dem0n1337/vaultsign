@@ -4,6 +4,7 @@ Main application window with all form fields, log output, and certificate
 details view. Wired to vault_backend for async authentication execution.
 """
 
+import copy
 import os
 import sys
 import threading
@@ -15,7 +16,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
-from config import load_config, save_config  # noqa: E402
+from config import load_config, save_config, get_active_profile, set_active_profile, save_profile, delete_profile, list_profiles, DEFAULTS  # noqa: E402
 from vault_backend import (  # noqa: E402
     check_token_status, list_oidc_roles, renew_token, request_cancel, reset_cancel, run_full_auth,
 )
@@ -39,6 +40,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.set_default_size(520, 720)
 
         self.config = load_config()
+        self.profile = get_active_profile(self.config)
 
         # --- Root layout: AdwToolbarView with header ---
         toolbar_view = Adw.ToolbarView()
@@ -112,20 +114,50 @@ class VaultSignWindow(Adw.ApplicationWindow):
         main_box.set_margin_end(12)
         scroll.set_child(main_box)
 
+        # --- Profile group ---
+        profile_group = Adw.PreferencesGroup(title="Profile")
+        main_box.append(profile_group)
+
+        profile_names = list_profiles(self.config)
+        self.profile_model = Gtk.StringList()
+        for name in profile_names:
+            self.profile_model.append(name)
+
+        self.profile_combo = Adw.ComboRow(title="Active Profile", model=self.profile_model)
+        active = self.config.get("active_profile", "default")
+        if active in profile_names:
+            self.profile_combo.set_selected(profile_names.index(active))
+        self.profile_combo.connect("notify::selected", self._on_profile_switched)
+        profile_group.add(self.profile_combo)
+
+        add_profile_btn = Gtk.Button.new_from_icon_name("list-add-symbolic")
+        add_profile_btn.set_tooltip_text("Add new profile")
+        add_profile_btn.set_valign(Gtk.Align.CENTER)
+        add_profile_btn.add_css_class("flat")
+        add_profile_btn.connect("clicked", self._on_add_profile)
+        self.profile_combo.add_suffix(add_profile_btn)
+
+        del_profile_btn = Gtk.Button.new_from_icon_name("list-remove-symbolic")
+        del_profile_btn.set_tooltip_text("Delete current profile")
+        del_profile_btn.set_valign(Gtk.Align.CENTER)
+        del_profile_btn.add_css_class("flat")
+        del_profile_btn.connect("clicked", self._on_delete_profile)
+        self.profile_combo.add_suffix(del_profile_btn)
+
         # --- Connection group ---
         conn_group = Adw.PreferencesGroup(title="Connection")
         main_box.append(conn_group)
 
         self.vault_addr_row = Adw.EntryRow(title="Vault Address")
-        self.vault_addr_row.set_text(self.config.get("vault_addr", ""))
+        self.vault_addr_row.set_text(self.profile.get("vault_addr", ""))
         conn_group.add(self.vault_addr_row)
 
         self.vault_cli_row = Adw.EntryRow(title="Vault CLI Path")
-        self.vault_cli_row.set_text(self.config.get("vault_cli_path", ""))
+        self.vault_cli_row.set_text(self.profile.get("vault_cli_path", ""))
         conn_group.add(self.vault_cli_row)
 
         self.ssh_key_row = Adw.EntryRow(title="SSH Key Path")
-        self.ssh_key_row.set_text(self.config.get("ssh_key_path", ""))
+        self.ssh_key_row.set_text(self.profile.get("ssh_key_path", ""))
         conn_group.add(self.ssh_key_row)
 
         # --- Authentication group ---
@@ -133,14 +165,14 @@ class VaultSignWindow(Adw.ApplicationWindow):
         main_box.append(auth_group)
 
         # Saved roles combo row
-        saved_roles = self.config.get("saved_roles", [])
+        saved_roles = self.profile.get("saved_roles", [])
         self.role_model = Gtk.StringList()
         for role in saved_roles:
             self.role_model.append(role)
 
         self.role_combo_row = Adw.ComboRow(title="Role", model=self.role_model)
         # Select the current role if it exists in saved_roles
-        current_role = self.config.get("role", "")
+        current_role = self.profile.get("role", "")
         if current_role in saved_roles:
             self.role_combo_row.set_selected(saved_roles.index(current_role))
         fetch_roles_button = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
@@ -431,6 +463,70 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.add_action(action)
         app.set_accels_for_action("win.copy-log", ["<Control>l"])
 
+    # --- Profile management ---
+
+    def _on_profile_switched(self, combo, _pspec):
+        idx = combo.get_selected()
+        if idx == Gtk.INVALID_LIST_POSITION:
+            return
+        name = self.profile_model.get_string(idx)
+        self.profile = set_active_profile(self.config, name)
+        self._populate_fields(self.profile)
+        save_config(self.config)
+
+    def _populate_fields(self, profile: dict):
+        """Fill form fields from a profile dict."""
+        self.vault_addr_row.set_text(profile.get("vault_addr", ""))
+        self.vault_cli_row.set_text(profile.get("vault_cli_path", ""))
+        self.ssh_key_row.set_text(profile.get("ssh_key_path", ""))
+        saved_roles = profile.get("saved_roles", [])
+        # Rebuild role model
+        while self.role_model.get_n_items() > 0:
+            self.role_model.remove(0)
+        for role in saved_roles:
+            self.role_model.append(role)
+        current_role = profile.get("role", "")
+        if current_role in saved_roles:
+            self.role_combo_row.set_selected(saved_roles.index(current_role))
+        self.custom_role_row.set_text("")
+        self.custom_ttl_row.set_text("")
+
+    def _on_add_profile(self, _button):
+        dialog = Adw.MessageDialog(transient_for=self, heading="New Profile", body="Enter profile name:")
+        entry = Gtk.Entry()
+        entry.set_placeholder_text("e.g. staging")
+        dialog.set_extra_child(entry)
+        dialog.add_response("cancel", "Cancel")
+        dialog.add_response("create", "Create")
+        dialog.set_response_appearance("create", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", self._on_add_profile_response, entry)
+        dialog.present()
+
+    def _on_add_profile_response(self, dialog, response, entry):
+        if response == "create":
+            name = entry.get_text().strip()
+            if name and name not in list_profiles(self.config):
+                save_profile(self.config, name, copy.deepcopy(DEFAULTS))
+                self.profile_model.append(name)
+                self.profile_combo.set_selected(self.profile_model.get_n_items() - 1)
+                save_config(self.config)
+
+    def _on_delete_profile(self, _button):
+        idx = self.profile_combo.get_selected()
+        if idx == Gtk.INVALID_LIST_POSITION:
+            return
+        name = self.profile_model.get_string(idx)
+        if delete_profile(self.config, name):
+            self.profile_model.remove(idx)
+            new_active = self.config.get("active_profile", "default")
+            names = list_profiles(self.config)
+            if new_active in names:
+                self.profile_combo.set_selected(names.index(new_active))
+            save_config(self.config)
+        else:
+            toast = Adw.Toast(title="Cannot delete the last profile")
+            self.toast_overlay.add_toast(toast)
+
     # --- Theme & About ---
 
     def _on_theme_changed(self, action, value):
@@ -531,7 +627,9 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
     def _on_save_settings(self, _button):
         """Persist current form values to config.json and show a toast."""
-        self.config = self._collect_config()
+        profile_data = self._collect_config()
+        active = self.config.get("active_profile", "default")
+        save_profile(self.config, active, profile_data)
         save_config(self.config)
         self.status_label.set_text("Settings saved.")
         toast = Adw.Toast(title="Settings saved")
