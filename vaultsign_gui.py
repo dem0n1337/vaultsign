@@ -428,7 +428,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
             license_type=Gtk.License.MIT_X11,
             developers=["dem0n1337"],
             copyright="© 2026 VaultSign Contributors",
-            comments="HashiCorp Vault OIDC Authentication & SSH Key Signing",
+            comments="HashiCorp Vault OIDC Authentication and SSH Key Signing",
         )
         dialog.present(self)
 
