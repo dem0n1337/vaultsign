@@ -37,7 +37,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.set_title("VaultSign")
-        self.set_default_size(520, 720)
+        self.set_default_size(480, 520)
 
         self._is_first_run = not CONFIG_FILE.exists()
         self.config = load_config()
@@ -77,6 +77,11 @@ class VaultSignWindow(Adw.ApplicationWindow):
         theme_section.append("Light theme", "win.theme::light")
         theme_section.append("Dark theme", "win.theme::dark")
         menu.append_section("Theme", theme_section)
+
+        log_section = Gio.Menu()
+        log_section.append("Copy Log to Clipboard", "win.copy-log")
+        log_section.append("Save Log to File", "win.save-log")
+        menu.append_section("Log", log_section)
 
         about_section = Gio.Menu()
         about_section.append("About VaultSign", "win.about")
@@ -212,79 +217,22 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.vault_status_label.set_margin_start(12)
         self.vault_status_label.set_margin_end(12)
         self.vault_status_label.set_margin_top(2)
-        self.vault_status_label.set_margin_bottom(6)
+        self.vault_status_label.set_margin_bottom(2)
         self.vault_status_label.add_css_class("dim-label")
         status_group.add(self.vault_status_label)
 
-        # Log toolbar with export buttons
-        log_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        log_toolbar.set_halign(Gtk.Align.END)
-        main_box.append(log_toolbar)
-
-        log_label = Gtk.Label(label="Log")
-        log_label.set_hexpand(True)
-        log_label.set_halign(Gtk.Align.START)
-        log_label.add_css_class("heading")
-        log_toolbar.append(log_label)
-
-        copy_log_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
-        copy_log_btn.set_tooltip_text("Copy log to clipboard")
-        copy_log_btn.add_css_class("flat")
-        copy_log_btn.connect("clicked", self._on_copy_log)
-        log_toolbar.append(copy_log_btn)
-
-        save_log_btn = Gtk.Button.new_from_icon_name("document-save-symbolic")
-        save_log_btn.set_tooltip_text("Save log to file")
-        save_log_btn.add_css_class("flat")
-        save_log_btn.connect("clicked", self._on_save_log)
-        log_toolbar.append(save_log_btn)
-
-        # --- Log output ---
-        log_scroll = Gtk.ScrolledWindow(vexpand=True)
-        log_scroll.set_min_content_height(160)
-        main_box.append(log_scroll)
-
-        self.log_view = Gtk.TextView()
-        self.log_view.set_editable(False)
-        self.log_view.set_cursor_visible(False)
-        self.log_view.set_monospace(True)
-        self.log_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        self.log_view.set_top_margin(6)
-        self.log_view.set_bottom_margin(6)
-        self.log_view.set_left_margin(8)
-        self.log_view.set_right_margin(8)
-        self.log_buffer = self.log_view.get_buffer()
-        self.log_buffer.set_text("Log output will appear here.\n")
-        log_scroll.set_child(self.log_view)
-
-        # --- Certificate details expander ---
-        self.cert_expander = Gtk.Expander(label="Certificate Details")
-        self.cert_expander.set_margin_top(4)
-        main_box.append(self.cert_expander)
-
-        cert_scroll = Gtk.ScrolledWindow()
-        cert_scroll.set_min_content_height(120)
-        self.cert_expander.set_child(cert_scroll)
-
-        self.cert_view = Gtk.TextView()
-        self.cert_view.set_editable(False)
-        self.cert_view.set_cursor_visible(False)
-        self.cert_view.set_monospace(True)
-        self.cert_view.set_wrap_mode(Gtk.WrapMode.WORD_CHAR)
-        self.cert_view.set_top_margin(6)
-        self.cert_view.set_bottom_margin(6)
-        self.cert_view.set_left_margin(8)
-        self.cert_view.set_right_margin(8)
-        self.cert_buffer = self.cert_view.get_buffer()
-        self.cert_buffer.set_text("No certificate loaded.")
-        cert_scroll.set_child(self.cert_view)
-
-        # --- Certificate expiry countdown ---
         self.cert_status_label = Gtk.Label(label="No certificate")
         self.cert_status_label.set_halign(Gtk.Align.START)
         self.cert_status_label.set_margin_start(12)
+        self.cert_status_label.set_margin_end(12)
+        self.cert_status_label.set_margin_top(2)
+        self.cert_status_label.set_margin_bottom(6)
         self.cert_status_label.add_css_class("dim-label")
-        main_box.append(self.cert_status_label)
+        status_group.add(self.cert_status_label)
+
+        # Hidden log buffer (accessible via hamburger menu -> Copy/Save Log)
+        self.log_buffer = Gtk.TextBuffer()
+        self.log_buffer.set_text("")
 
         # Startup: check existing session and start timers
         GLib.idle_add(self._check_existing_session)
@@ -312,12 +260,9 @@ class VaultSignWindow(Adw.ApplicationWindow):
         }
 
     def _append_log(self, text: str) -> None:
-        """Append text to the log buffer. Must be called on the main thread."""
+        """Append text to the hidden log buffer."""
         end_iter = self.log_buffer.get_end_iter()
         self.log_buffer.insert(end_iter, text + "\n")
-        # Auto-scroll to bottom
-        end_iter = self.log_buffer.get_end_iter()
-        self.log_view.scroll_to_iter(end_iter, 0.0, False, 0.0, 0.0)
 
     # --- Status monitoring ---
 
@@ -438,6 +383,10 @@ class VaultSignWindow(Adw.ApplicationWindow):
         action.connect("activate", lambda *_: self._on_copy_log(None))
         self.add_action(action)
         app.set_accels_for_action("win.copy-log", ["<Control>l"])
+
+        action = Gio.SimpleAction.new("save-log", None)
+        action.connect("activate", lambda *_: self._on_save_log(None))
+        self.add_action(action)
 
     # --- Profile management ---
 
@@ -630,8 +579,6 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.auth_button.set_sensitive(False)
         self.cancel_button.set_sensitive(True)
         self.log_buffer.set_text("")
-        self.cert_buffer.set_text("No certificate loaded.")
-        self.cert_expander.set_expanded(False)
         self.status_label.set_text("Authenticating\u2026")
 
         def step_callback(step_name: str, success: bool, output: str) -> None:
@@ -663,9 +610,6 @@ class VaultSignWindow(Adw.ApplicationWindow):
                 self.cancel_button.set_sensitive(False)
                 if success:
                     self.status_label.set_text("Authentication successful.")
-                    # Populate certificate details from the last step output
-                    self.cert_buffer.set_text(output)
-                    self.cert_expander.set_expanded(True)
                     self._update_cert_status()
                     self._update_token_status()
                 else:
