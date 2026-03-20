@@ -18,7 +18,7 @@ from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 from config import load_config, save_config, get_active_profile, set_active_profile, save_profile, delete_profile, list_profiles, DEFAULTS, CONFIG_FILE  # noqa: E402
 from vault_backend import (  # noqa: E402
-    check_token_status, check_vault_status, list_oidc_roles, redact_tokens, renew_token, request_cancel, reset_cancel, run_full_auth,
+    check_token_status, check_vault_status, redact_tokens, renew_token, request_cancel, reset_cancel, run_full_auth,
 )
 
 # Human-readable labels for each backend step.
@@ -165,36 +165,9 @@ class VaultSignWindow(Adw.ApplicationWindow):
         auth_group = Adw.PreferencesGroup(title="Authentication")
         main_box.append(auth_group)
 
-        # Saved roles combo row
-        saved_roles = self.profile.get("saved_roles", [])
-        self.role_model = Gtk.StringList()
-        for role in saved_roles:
-            self.role_model.append(role)
-
-        self.role_combo_row = Adw.ComboRow(title="Role", model=self.role_model)
-        # Select the current role if it exists in saved_roles
-        current_role = self.profile.get("role", "")
-        if current_role in saved_roles:
-            self.role_combo_row.set_selected(saved_roles.index(current_role))
-        fetch_roles_button = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
-        fetch_roles_button.set_tooltip_text("Fetch roles from Vault")
-        fetch_roles_button.set_valign(Gtk.Align.CENTER)
-        fetch_roles_button.add_css_class("flat")
-        fetch_roles_button.connect("clicked", self._on_fetch_roles)
-        self.role_combo_row.add_suffix(fetch_roles_button)
-        auth_group.add(self.role_combo_row)
-
-        # Custom role entry row (takes precedence when non-empty)
-        self.custom_role_row = Adw.EntryRow(title="Custom Role (overrides dropdown)")
-        auth_group.add(self.custom_role_row)
-
-        # TTL selector
-        self.ttl_model = Gtk.StringList.new(["Server default", "30m", "1h", "4h", "8h", "24h"])
-        self.ttl_combo = Adw.ComboRow(title="Certificate TTL", model=self.ttl_model)
-        auth_group.add(self.ttl_combo)
-
-        self.custom_ttl_row = Adw.EntryRow(title="Custom TTL (e.g. 2h30m)")
-        auth_group.add(self.custom_ttl_row)
+        self.role_row = Adw.EntryRow(title="Role")
+        self.role_row.set_text(self.profile.get("role", ""))
+        auth_group.add(self.role_row)
 
         # --- Button area ---
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
@@ -329,41 +302,13 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
     # --- Helpers ---
 
-    def get_active_role(self) -> str:
-        """Return the role to use: custom entry if non-empty, else combo selection."""
-        custom = self.custom_role_row.get_text().strip()
-        if custom:
-            return custom
-        idx = self.role_combo_row.get_selected()
-        if idx == Gtk.INVALID_LIST_POSITION or idx >= self.role_model.get_n_items():
-            return ""
-        item = self.role_model.get_string(idx)
-        return item if item else ""
-
     def _collect_config(self) -> dict:
         """Read current form values into a config dict."""
-        role = self.get_active_role()
-        saved_roles = [self.role_model.get_string(i) for i in range(self.role_model.get_n_items())]
-        # Auto-add custom role to saved_roles
-        if role and role not in saved_roles:
-            saved_roles.append(role)
-            self.role_model.append(role)
-        # Get TTL
-        custom_ttl = self.custom_ttl_row.get_text().strip()
-        if custom_ttl:
-            cert_ttl = custom_ttl
-        else:
-            ttl_idx = self.ttl_combo.get_selected()
-            ttl_str = self.ttl_model.get_string(ttl_idx) if ttl_idx != Gtk.INVALID_LIST_POSITION else ""
-            cert_ttl = "" if ttl_str == "Server default" else ttl_str
-
         return {
             "vault_addr": self.vault_addr_row.get_text().strip(),
             "vault_cli_path": self.vault_cli_row.get_text().strip(),
             "ssh_key_path": self.ssh_key_row.get_text().strip(),
-            "role": role,
-            "saved_roles": saved_roles,
-            "cert_ttl": cert_ttl,
+            "role": self.role_row.get_text().strip(),
         }
 
     def _append_log(self, text: str) -> None:
@@ -510,17 +455,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.vault_addr_row.set_text(profile.get("vault_addr", ""))
         self.vault_cli_row.set_text(profile.get("vault_cli_path", ""))
         self.ssh_key_row.set_text(profile.get("ssh_key_path", ""))
-        saved_roles = profile.get("saved_roles", [])
-        # Rebuild role model
-        while self.role_model.get_n_items() > 0:
-            self.role_model.remove(0)
-        for role in saved_roles:
-            self.role_model.append(role)
-        current_role = profile.get("role", "")
-        if current_role in saved_roles:
-            self.role_combo_row.set_selected(saved_roles.index(current_role))
-        self.custom_role_row.set_text("")
-        self.custom_ttl_row.set_text("")
+        self.role_row.set_text(profile.get("role", ""))
 
     def _on_add_profile(self, _button):
         dialog = Adw.MessageDialog(transient_for=self, heading="New Profile", body="Enter profile name:")
@@ -626,36 +561,6 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
     # --- Signal handlers ---
 
-    def _on_fetch_roles(self, _button):
-        """Fetch available roles from Vault in background."""
-        self._append_log("Fetching roles from Vault...")
-
-        def _fetch():
-            roles = list_oidc_roles(self._collect_config())
-
-            def _update_ui():
-                if roles is None:
-                    self._append_log("Could not fetch roles (need valid token first?)")
-                    toast = Adw.Toast(title="Could not fetch roles")
-                    self.toast_overlay.add_toast(toast)
-                    return False
-
-                existing = set(self.role_model.get_string(i) for i in range(self.role_model.get_n_items()))
-                added = 0
-                for role in roles:
-                    if role not in existing:
-                        self.role_model.append(role)
-                        added += 1
-
-                self._append_log(f"Found {len(roles)} roles, added {added} new.")
-                toast = Adw.Toast(title=f"Found {len(roles)} roles")
-                self.toast_overlay.add_toast(toast)
-                return False
-
-            GLib.idle_add(_update_ui)
-
-        threading.Thread(target=_fetch, daemon=True).start()
-
     def _on_save_settings(self, _button):
         """Persist current form values to config.json and show a toast."""
         profile_data = self._collect_config()
@@ -713,7 +618,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
             self.ssh_key_row.set_text(key_entry.get_text())
             role = role_entry.get_text().strip()
             if role:
-                self.custom_role_row.set_text(role)
+                self.role_row.set_text(role)
             self._on_save_settings(None)
 
     def _on_authenticate(self, _button):

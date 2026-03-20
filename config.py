@@ -17,8 +17,6 @@ DEFAULTS = {
     "vault_cli_path": "vault",
     "ssh_key_path": "~/.ssh/id_ed25519",
     "role": "",
-    "saved_roles": [],
-    "cert_ttl": "",  # empty = server default
     "show_tray": True,
     "expiry_warn_minutes": 30,
 }
