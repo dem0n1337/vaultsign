@@ -200,6 +200,9 @@ class VaultSignWindow(Adw.ApplicationWindow):
         """Append text to the log buffer. Must be called on the main thread."""
         end_iter = self.log_buffer.get_end_iter()
         self.log_buffer.insert(end_iter, text + "\n")
+        # Auto-scroll to bottom
+        end_iter = self.log_buffer.get_end_iter()
+        self.log_view.scroll_to_iter(end_iter, 0.0, False, 0.0, 0.0)
 
     # --- Signal handlers ---
 
@@ -238,7 +241,10 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
         def worker() -> None:
             """Run the full auth flow in a background thread."""
-            success, output = run_full_auth(config, step_callback=step_callback)
+            try:
+                success, output = run_full_auth(config, step_callback=step_callback)
+            except Exception as e:
+                success, output = False, f"Unexpected error: {e}"
 
             def _finish():
                 self.auth_button.set_sensitive(True)
