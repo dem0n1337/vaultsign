@@ -364,7 +364,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.role_row.set_text(profile.get("role", ""))
 
     def _on_add_profile(self, _button):
-        dialog = Adw.MessageDialog(transient_for=self, heading="New Profile", body="Enter profile name:")
+        dialog = Adw.AlertDialog(heading="New Profile", body="Enter profile name:")
         entry = Gtk.Entry()
         entry.set_placeholder_text("e.g. staging")
         dialog.set_extra_child(entry)
@@ -372,7 +372,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
         dialog.add_response("create", "Create")
         dialog.set_response_appearance("create", Adw.ResponseAppearance.SUGGESTED)
         dialog.connect("response", self._on_add_profile_response, entry)
-        dialog.present()
+        dialog.present(self)
 
     def _on_add_profile_response(self, dialog, response, entry):
         if response == "create":
@@ -482,8 +482,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.cancel_button.set_sensitive(False)
 
     def _show_first_run_wizard(self):
-        dialog = Adw.MessageDialog(
-            transient_for=self,
+        dialog = Adw.AlertDialog(
             heading="Welcome to VaultSign",
             body="Let's set up your Vault connection.\n\nYou can change these settings later.",
         )
@@ -509,10 +508,10 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
         dialog.set_extra_child(box)
         dialog.add_response("skip", "Skip")
-        dialog.add_response("save", "Save & Continue")
+        dialog.add_response("save", "Save and Continue")
         dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
         dialog.connect("response", self._on_wizard_response, addr_entry, cli_entry, key_entry, role_entry)
-        dialog.present()
+        dialog.present(self)
         return False
 
     def _on_wizard_response(self, dialog, response, addr_entry, cli_entry, key_entry, role_entry):
