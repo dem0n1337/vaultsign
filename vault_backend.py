@@ -175,6 +175,11 @@ def add_to_ssh_agent(config: dict, callback: Optional[StepCallback] = None) -> T
     Tries systemctl --user start ssh-agent first, falls back to
     eval ssh-agent -s. Then runs ssh-add PRIVATE_KEY.
 
+    Note: When the fallback ssh-agent path is taken, this function mutates
+    os.environ by setting SSH_AUTH_SOCK and SSH_AGENT_PID so that the
+    subsequent ssh-add subprocess (and any later subprocesses in this
+    process) can connect to the agent.
+
     Returns:
         (success, output) tuple.
     """
@@ -209,10 +214,10 @@ def add_to_ssh_agent(config: dict, callback: Optional[StepCallback] = None) -> T
                 # Parse SSH_AUTH_SOCK and SSH_AGENT_PID from output
                 for line in result.stdout.splitlines():
                     if line.startswith("SSH_AUTH_SOCK="):
-                        sock = line.split("=", 1)[1].rstrip("; export SSH_AUTH_SOCK;")
+                        sock = line.split(";")[0].split("=", 1)[1]
                         os.environ["SSH_AUTH_SOCK"] = sock
                     elif line.startswith("SSH_AGENT_PID="):
-                        pid = line.split("=", 1)[1].rstrip("; export SSH_AGENT_PID;")
+                        pid = line.split(";")[0].split("=", 1)[1]
                         os.environ["SSH_AGENT_PID"] = pid
                 messages.append("ssh-agent started via ssh-agent -s.")
                 agent_started = True
