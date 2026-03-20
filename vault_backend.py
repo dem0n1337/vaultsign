@@ -168,14 +168,18 @@ def sign_ssh_key(config: dict, callback: Optional[StepCallback] = None) -> Tuple
 
     global _current_process
     try:
+        cmd = [
+            vault_cli,
+            "write",
+            "-field=signed_key",
+            f"ssh-client-signer/sign/{role}",
+            f"public_key=@{ssh_pub}",
+        ]
+        cert_ttl = config.get("cert_ttl", "")
+        if cert_ttl:
+            cmd.append(f"ttl={cert_ttl}")
         proc = subprocess.Popen(
-            [
-                vault_cli,
-                "write",
-                "-field=signed_key",
-                f"ssh-client-signer/sign/{role}",
-                f"public_key=@{ssh_pub}",
-            ],
+            cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,

@@ -120,6 +120,14 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.custom_role_row = Adw.EntryRow(title="Custom Role (overrides dropdown)")
         auth_group.add(self.custom_role_row)
 
+        # TTL selector
+        self.ttl_model = Gtk.StringList.new(["Server default", "30m", "1h", "4h", "8h", "24h"])
+        self.ttl_combo = Adw.ComboRow(title="Certificate TTL", model=self.ttl_model)
+        auth_group.add(self.ttl_combo)
+
+        self.custom_ttl_row = Adw.EntryRow(title="Custom TTL (e.g. 2h30m)")
+        auth_group.add(self.custom_ttl_row)
+
         # --- Button area ---
         button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         button_box.set_halign(Gtk.Align.CENTER)
@@ -233,12 +241,22 @@ class VaultSignWindow(Adw.ApplicationWindow):
         if role and role not in saved_roles:
             saved_roles.append(role)
             self.role_model.append(role)
+        # Get TTL
+        custom_ttl = self.custom_ttl_row.get_text().strip()
+        if custom_ttl:
+            cert_ttl = custom_ttl
+        else:
+            ttl_idx = self.ttl_combo.get_selected()
+            ttl_str = self.ttl_model.get_string(ttl_idx) if ttl_idx != Gtk.INVALID_LIST_POSITION else ""
+            cert_ttl = "" if ttl_str == "Server default" else ttl_str
+
         return {
             "vault_addr": self.vault_addr_row.get_text().strip(),
             "vault_cli_path": self.vault_cli_row.get_text().strip(),
             "ssh_key_path": self.ssh_key_row.get_text().strip(),
             "role": role,
             "saved_roles": saved_roles,
+            "cert_ttl": cert_ttl,
         }
 
     def _append_log(self, text: str) -> None:

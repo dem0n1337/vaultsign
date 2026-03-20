@@ -18,6 +18,7 @@ DEFAULTS = {
     "ssh_key_path": "~/.ssh/id_ed25519",
     "role": "",
     "saved_roles": [],
+    "cert_ttl": "",  # empty = server default
 }
 
 
