@@ -18,7 +18,7 @@ from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 from config import load_config, save_config, get_active_profile, set_active_profile, save_profile, delete_profile, list_profiles, DEFAULTS, CONFIG_FILE  # noqa: E402
 from vault_backend import (  # noqa: E402
-    check_token_status, list_oidc_roles, redact_tokens, renew_token, request_cancel, reset_cancel, run_full_auth,
+    check_token_status, check_vault_status, list_oidc_roles, redact_tokens, renew_token, request_cancel, reset_cancel, run_full_auth,
 )
 
 # Human-readable labels for each backend step.
@@ -234,6 +234,15 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.status_label.add_css_class("dim-label")
         status_group.add(self.status_label)
 
+        self.vault_status_label = Gtk.Label(label="Vault: checking...")
+        self.vault_status_label.set_halign(Gtk.Align.START)
+        self.vault_status_label.set_margin_start(12)
+        self.vault_status_label.set_margin_end(12)
+        self.vault_status_label.set_margin_top(2)
+        self.vault_status_label.set_margin_bottom(6)
+        self.vault_status_label.add_css_class("dim-label")
+        status_group.add(self.vault_status_label)
+
         # Log toolbar with export buttons
         log_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         log_toolbar.set_halign(Gtk.Align.END)
@@ -310,6 +319,8 @@ class VaultSignWindow(Adw.ApplicationWindow):
         GLib.timeout_add_seconds(60, self._update_cert_status)
         GLib.timeout_add_seconds(120, self._update_token_status)
         GLib.timeout_add_seconds(120, self._check_and_renew_token)
+        self._update_vault_status()
+        GLib.timeout_add_seconds(30, self._update_vault_status)
 
         self._setup_shortcuts()
 
@@ -441,6 +452,22 @@ class VaultSignWindow(Adw.ApplicationWindow):
                 GLib.idle_add(_notify)
 
         threading.Thread(target=_do_renew, daemon=True).start()
+        return True
+
+    def _update_vault_status(self) -> bool:
+        """Check Vault server status in background."""
+        def _check():
+            status = check_vault_status(self._collect_config())
+            def _update():
+                if status is None:
+                    self.vault_status_label.set_text("Vault: unreachable")
+                elif status["sealed"]:
+                    self.vault_status_label.set_text("Vault: sealed")
+                else:
+                    self.vault_status_label.set_text(f"Vault: ok (v{status['version']})")
+                return False
+            GLib.idle_add(_update)
+        threading.Thread(target=_check, daemon=True).start()
         return True
 
     def _setup_shortcuts(self):
