@@ -269,7 +269,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
     def _update_cert_status(self) -> bool:
         """Update certificate expiry countdown. Returns True to keep timer running."""
         from cert_utils import parse_cert_expiry
-        ssh_key = os.path.expanduser(self.config.get("ssh_key_path", ""))
+        ssh_key = os.path.expanduser(self.ssh_key_row.get_text().strip())
         cert_path = ssh_key + "-cert.pub"
         info = parse_cert_expiry(cert_path)
         if info is None:
