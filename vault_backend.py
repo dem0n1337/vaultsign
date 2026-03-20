@@ -23,7 +23,7 @@ def _vault_env(config: dict) -> dict:
     return env
 
 
-def check_prerequisites(config: dict) -> Tuple[bool, str]:
+def check_prerequisites(config: dict, callback: Optional[StepCallback] = None) -> Tuple[bool, str]:
     """Verify vault CLI exists and SSH keys are present.
 
     Checks:
@@ -60,10 +60,12 @@ def check_prerequisites(config: dict) -> Tuple[bool, str]:
         ok = False
 
     output = "\n".join(messages)
+    if callback is not None:
+        callback("check_prerequisites", ok, output)
     return (ok, output)
 
 
-def vault_login(config: dict) -> Tuple[bool, str]:
+def vault_login(config: dict, callback: Optional[StepCallback] = None) -> Tuple[bool, str]:
     """Run vault login with OIDC method.
 
     Executes: vault login -method=oidc role=ROLE
@@ -86,14 +88,24 @@ def vault_login(config: dict) -> Tuple[bool, str]:
             env=env,
         )
         output = result.stdout + result.stderr
-        return (result.returncode == 0, output.strip())
+        success = result.returncode == 0
+        output = output.strip()
+        if callback is not None:
+            callback("vault_login", success, output)
+        return (success, output)
     except FileNotFoundError:
-        return (False, f"Vault CLI not found at: {vault_cli}")
+        output = f"Vault CLI not found at: {vault_cli}"
+        if callback is not None:
+            callback("vault_login", False, output)
+        return (False, output)
     except Exception as e:
-        return (False, f"Error running vault login: {e}")
+        output = f"Error running vault login: {e}"
+        if callback is not None:
+            callback("vault_login", False, output)
+        return (False, output)
 
 
-def sign_ssh_key(config: dict) -> Tuple[bool, str]:
+def sign_ssh_key(config: dict, callback: Optional[StepCallback] = None) -> Tuple[bool, str]:
     """Sign the SSH public key via Vault.
 
     Executes: vault write -field=signed_key ssh-client-signer/sign/ROLE
@@ -126,24 +138,38 @@ def sign_ssh_key(config: dict) -> Tuple[bool, str]:
         )
 
         if result.returncode != 0:
-            output = result.stdout + result.stderr
-            return (False, output.strip())
+            output = (result.stdout + result.stderr).strip()
+            if callback is not None:
+                callback("sign_ssh_key", False, output)
+            return (False, output)
 
         signed_key = result.stdout.strip()
         if not signed_key:
-            return (False, "Vault returned empty signed key.")
+            output = "Vault returned empty signed key."
+            if callback is not None:
+                callback("sign_ssh_key", False, output)
+            return (False, output)
 
         with open(cert_path, "w") as f:
             f.write(signed_key + "\n")
 
-        return (True, f"Certificate written to {cert_path}")
+        output = f"Certificate written to {cert_path}"
+        if callback is not None:
+            callback("sign_ssh_key", True, output)
+        return (True, output)
     except FileNotFoundError:
-        return (False, f"Vault CLI not found at: {vault_cli}")
+        output = f"Vault CLI not found at: {vault_cli}"
+        if callback is not None:
+            callback("sign_ssh_key", False, output)
+        return (False, output)
     except Exception as e:
-        return (False, f"Error signing SSH key: {e}")
+        output = f"Error signing SSH key: {e}"
+        if callback is not None:
+            callback("sign_ssh_key", False, output)
+        return (False, output)
 
 
-def add_to_ssh_agent(config: dict) -> Tuple[bool, str]:
+def add_to_ssh_agent(config: dict, callback: Optional[StepCallback] = None) -> Tuple[bool, str]:
     """Ensure ssh-agent is running and add the private key.
 
     Tries systemctl --user start ssh-agent first, falls back to
@@ -198,7 +224,10 @@ def add_to_ssh_agent(config: dict) -> Tuple[bool, str]:
             messages.append(f"Error starting ssh-agent: {e}")
 
     if not agent_started:
-        return (False, "\n".join(messages))
+        output = "\n".join(messages)
+        if callback is not None:
+            callback("add_to_ssh_agent", False, output)
+        return (False, output)
 
     # Run ssh-add
     try:
@@ -207,18 +236,28 @@ def add_to_ssh_agent(config: dict) -> Tuple[bool, str]:
             capture_output=True,
             text=True,
         )
-        output = result.stdout + result.stderr
-        messages.append(output.strip())
-        return (result.returncode == 0, "\n".join(messages))
+        cmd_output = result.stdout + result.stderr
+        messages.append(cmd_output.strip())
+        output = "\n".join(messages)
+        success = result.returncode == 0
+        if callback is not None:
+            callback("add_to_ssh_agent", success, output)
+        return (success, output)
     except FileNotFoundError:
         messages.append("ssh-add command not found.")
-        return (False, "\n".join(messages))
+        output = "\n".join(messages)
+        if callback is not None:
+            callback("add_to_ssh_agent", False, output)
+        return (False, output)
     except Exception as e:
         messages.append(f"Error running ssh-add: {e}")
-        return (False, "\n".join(messages))
+        output = "\n".join(messages)
+        if callback is not None:
+            callback("add_to_ssh_agent", False, output)
+        return (False, output)
 
 
-def get_certificate_details(config: dict) -> Tuple[bool, str]:
+def get_certificate_details(config: dict, callback: Optional[StepCallback] = None) -> Tuple[bool, str]:
     """Show details of the signed SSH certificate.
 
     Executes: ssh-keygen -L -f CERT_PATH
@@ -235,12 +274,21 @@ def get_certificate_details(config: dict) -> Tuple[bool, str]:
             capture_output=True,
             text=True,
         )
-        output = result.stdout + result.stderr
-        return (result.returncode == 0, output.strip())
+        output = (result.stdout + result.stderr).strip()
+        success = result.returncode == 0
+        if callback is not None:
+            callback("get_certificate_details", success, output)
+        return (success, output)
     except FileNotFoundError:
-        return (False, "ssh-keygen command not found.")
+        output = "ssh-keygen command not found."
+        if callback is not None:
+            callback("get_certificate_details", False, output)
+        return (False, output)
     except Exception as e:
-        return (False, f"Error reading certificate: {e}")
+        output = f"Error reading certificate: {e}"
+        if callback is not None:
+            callback("get_certificate_details", False, output)
+        return (False, output)
 
 
 def run_full_auth(
@@ -271,10 +319,7 @@ def run_full_auth(
     ]
 
     for step_name, step_func in steps:
-        success, output = step_func(config)
-
-        if step_callback is not None:
-            step_callback(step_name, success, output)
+        success, output = step_func(config, callback=step_callback)
 
         if not success:
             return (False, f"Failed at {step_name}: {output}")
