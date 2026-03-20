@@ -1,0 +1,33 @@
+app-id: io.github.dem0n1337.vaultsign
+runtime: org.gnome.Platform
+runtime-version: '46'
+sdk: org.gnome.Sdk
+command: vaultsign
+finish-args:
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --share=network
+  - --socket=ssh-auth
+  - --talk-name=org.freedesktop.Notifications
+  - --filesystem=~/.ssh:rw
+  - --filesystem=~/.config/vaultsign:create
+modules:
+  - name: vaultsign
+    buildsystem: simple
+    build-commands:
+      - mkdir -p /app/share/vaultsign
+      - cp *.py /app/share/vaultsign/
+      - cp vaultsign /app/share/vaultsign/
+      - chmod +x /app/share/vaultsign/vaultsign
+      - mkdir -p /app/bin
+      - ln -sf /app/share/vaultsign/vaultsign /app/bin/vaultsign
+      - mkdir -p /app/share/applications
+      - cp vaultsign.desktop /app/share/applications/io.github.dem0n1337.vaultsign.desktop
+      - mkdir -p /app/share/icons/hicolor/scalable/apps
+      - cp icons/vaultsign.svg /app/share/icons/hicolor/scalable/apps/io.github.dem0n1337.vaultsign.svg
+      - mkdir -p /app/share/metainfo
+      - cp packaging/io.github.dem0n1337.vaultsign.metainfo.xml /app/share/metainfo/
+    sources:
+      - type: dir
+        path: ..
