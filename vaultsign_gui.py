@@ -254,7 +254,8 @@ class VaultSignWindow(Adw.ApplicationWindow):
                     self.cert_buffer.set_text(output)
                     self.cert_expander.set_expanded(True)
                 else:
-                    self.status_label.set_text(f"Error: {output}")
+                    first_line = output.split("\n")[0][:80]
+                    self.status_label.set_text(f"Error: {first_line}")
                 return False
 
             GLib.idle_add(_finish)

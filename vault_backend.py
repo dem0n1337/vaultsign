@@ -5,6 +5,7 @@ Each function takes a config dict and returns (success: bool, output: str).
 """
 
 import os
+import stat
 import subprocess
 from typing import Callable, Optional, Tuple
 
@@ -86,6 +87,7 @@ def vault_login(config: dict, callback: Optional[StepCallback] = None) -> Tuple[
             capture_output=True,
             text=True,
             env=env,
+            timeout=300,
         )
         output = result.stdout + result.stderr
         success = result.returncode == 0
@@ -93,6 +95,11 @@ def vault_login(config: dict, callback: Optional[StepCallback] = None) -> Tuple[
         if callback is not None:
             callback("vault_login", success, output)
         return (success, output)
+    except subprocess.TimeoutExpired:
+        output = "OIDC login timed out after 5 minutes"
+        if callback is not None:
+            callback("vault_login", False, output)
+        return (False, output)
     except FileNotFoundError:
         output = f"Vault CLI not found at: {vault_cli}"
         if callback is not None:
@@ -150,7 +157,8 @@ def sign_ssh_key(config: dict, callback: Optional[StepCallback] = None) -> Tuple
                 callback("sign_ssh_key", False, output)
             return (False, output)
 
-        with open(cert_path, "w") as f:
+        fd = os.open(cert_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, stat.S_IRUSR | stat.S_IWUSR)
+        with os.fdopen(fd, "w") as f:
             f.write(signed_key + "\n")
 
         output = f"Certificate written to {cert_path}"
