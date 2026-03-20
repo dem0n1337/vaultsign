@@ -18,7 +18,7 @@ from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 from config import load_config, save_config, get_active_profile, set_active_profile, save_profile, delete_profile, list_profiles, DEFAULTS, CONFIG_FILE  # noqa: E402
 from vault_backend import (  # noqa: E402
-    check_token_status, list_oidc_roles, renew_token, request_cancel, reset_cancel, run_full_auth,
+    check_token_status, list_oidc_roles, redact_tokens, renew_token, request_cancel, reset_cancel, run_full_auth,
 )
 
 # Human-readable labels for each backend step.
@@ -704,6 +704,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
         def step_callback(step_name: str, success: bool, output: str) -> None:
             """Called from worker thread after each step completes."""
+            output = redact_tokens(output) if output else output
             status = "OK" if success else "FAILED"
             label = _STEP_LABELS.get(step_name, step_name)
 
@@ -724,6 +725,8 @@ class VaultSignWindow(Adw.ApplicationWindow):
                 success, output = False, f"Unexpected error: {e}"
 
             def _finish():
+                nonlocal output
+                output = redact_tokens(output)
                 self.auth_button.set_sensitive(True)
                 self.cancel_button.set_sensitive(False)
                 if success:
@@ -785,6 +788,12 @@ class VaultSignApp(Adw.Application):
 
 
 def main():
+    import resource
+    try:
+        resource.setrlimit(resource.RLIMIT_CORE, (0, 0))
+    except (ValueError, resource.error):
+        pass
+
     app = VaultSignApp()
     app.run(sys.argv)
 
