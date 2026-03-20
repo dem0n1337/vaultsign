@@ -201,6 +201,29 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.status_label.add_css_class("dim-label")
         status_group.add(self.status_label)
 
+        # Log toolbar with export buttons
+        log_toolbar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        log_toolbar.set_halign(Gtk.Align.END)
+        main_box.append(log_toolbar)
+
+        log_label = Gtk.Label(label="Log")
+        log_label.set_hexpand(True)
+        log_label.set_halign(Gtk.Align.START)
+        log_label.add_css_class("heading")
+        log_toolbar.append(log_label)
+
+        copy_log_btn = Gtk.Button.new_from_icon_name("edit-copy-symbolic")
+        copy_log_btn.set_tooltip_text("Copy log to clipboard")
+        copy_log_btn.add_css_class("flat")
+        copy_log_btn.connect("clicked", self._on_copy_log)
+        log_toolbar.append(copy_log_btn)
+
+        save_log_btn = Gtk.Button.new_from_icon_name("document-save-symbolic")
+        save_log_btn.set_tooltip_text("Save log to file")
+        save_log_btn.add_css_class("flat")
+        save_log_btn.connect("clicked", self._on_save_log)
+        log_toolbar.append(save_log_btn)
+
         # --- Log output ---
         log_scroll = Gtk.ScrolledWindow(vexpand=True)
         log_scroll.set_min_content_height(160)
@@ -403,6 +426,11 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.add_action(action)
         app.set_accels_for_action("win.cancel", ["Escape"])
 
+        action = Gio.SimpleAction.new("copy-log", None)
+        action.connect("activate", lambda *_: self._on_copy_log(None))
+        self.add_action(action)
+        app.set_accels_for_action("win.copy-log", ["<Control>l"])
+
     # --- Theme & About ---
 
     def _on_theme_changed(self, action, value):
@@ -435,6 +463,39 @@ class VaultSignWindow(Adw.ApplicationWindow):
             comments="HashiCorp Vault OIDC Authentication & SSH Key Signing",
         )
         dialog.present(self)
+
+    # --- Log export ---
+
+    def _on_copy_log(self, _button):
+        """Copy log contents to clipboard."""
+        start = self.log_buffer.get_start_iter()
+        end = self.log_buffer.get_end_iter()
+        text = self.log_buffer.get_text(start, end, False)
+        clipboard = self.get_clipboard()
+        clipboard.set(text)
+        toast = Adw.Toast(title="Log copied to clipboard")
+        self.toast_overlay.add_toast(toast)
+
+    def _on_save_log(self, _button):
+        """Save log to a file using file chooser dialog."""
+        dialog = Gtk.FileDialog()
+        dialog.set_initial_name("vaultsign.log")
+        dialog.save(self, None, self._on_save_log_response)
+
+    def _on_save_log_response(self, dialog, result):
+        try:
+            file = dialog.save_finish(result)
+            if file:
+                start = self.log_buffer.get_start_iter()
+                end = self.log_buffer.get_end_iter()
+                text = self.log_buffer.get_text(start, end, False)
+                path = file.get_path()
+                with open(path, "w") as f:
+                    f.write(text)
+                toast = Adw.Toast(title=f"Log saved to {os.path.basename(path)}")
+                self.toast_overlay.add_toast(toast)
+        except Exception:
+            pass  # User cancelled
 
     # --- Signal handlers ---
 
