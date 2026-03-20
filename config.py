@@ -19,6 +19,8 @@ DEFAULTS = {
     "role": "",
     "saved_roles": [],
     "cert_ttl": "",  # empty = server default
+    "show_tray": True,
+    "expiry_warn_minutes": 30,
 }
 
 

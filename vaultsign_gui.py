@@ -706,6 +706,19 @@ class VaultSignApp(Adw.Application):
         win = VaultSignWindow(application=self)
         win.present()
 
+        from tray import ExpiryMonitor
+        from cert_utils import parse_cert_expiry
+
+        profile = get_active_profile(win.config)
+
+        def get_cert_info():
+            ssh_key = os.path.expanduser(profile.get("ssh_key_path", ""))
+            return parse_cert_expiry(ssh_key + "-cert.pub")
+
+        self.expiry_monitor = ExpiryMonitor(self, profile, get_cert_info)
+        if profile.get("show_tray", True):
+            self.expiry_monitor.start()
+
 
 def main():
     app = VaultSignApp()
