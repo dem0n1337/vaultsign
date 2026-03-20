@@ -15,7 +15,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from config import load_config, save_config  # noqa: E402
-from vault_backend import run_full_auth  # noqa: E402
+from vault_backend import request_cancel, reset_cancel, run_full_auth  # noqa: E402
 
 # Human-readable labels for each backend step.
 _STEP_LABELS = {
@@ -108,6 +108,13 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.auth_button.add_css_class("pill")
         self.auth_button.connect("clicked", self._on_authenticate)
         button_box.append(self.auth_button)
+
+        self.cancel_button = Gtk.Button(label="Cancel")
+        self.cancel_button.add_css_class("destructive-action")
+        self.cancel_button.add_css_class("pill")
+        self.cancel_button.set_sensitive(False)
+        self.cancel_button.connect("clicked", self._on_cancel)
+        button_box.append(self.cancel_button)
 
         self.save_button = Gtk.Button(label="Save Settings")
         self.save_button.add_css_class("flat")
@@ -214,12 +221,20 @@ class VaultSignWindow(Adw.ApplicationWindow):
         toast = Adw.Toast(title="Settings saved")
         self.toast_overlay.add_toast(toast)
 
+    def _on_cancel(self, _button):
+        """Request cancellation of the running auth flow."""
+        request_cancel()
+        self.cancel_button.set_sensitive(False)
+        self.status_label.set_text("Cancelling\u2026")
+
     def _on_authenticate(self, _button):
         """Collect config, disable button, and run auth in a background thread."""
         config = self._collect_config()
+        reset_cancel()
 
         # Disable button and clear log
         self.auth_button.set_sensitive(False)
+        self.cancel_button.set_sensitive(True)
         self.log_buffer.set_text("")
         self.cert_buffer.set_text("No certificate loaded.")
         self.cert_expander.set_expanded(False)
@@ -248,6 +263,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
             def _finish():
                 self.auth_button.set_sensitive(True)
+                self.cancel_button.set_sensitive(False)
                 if success:
                     self.status_label.set_text("Authentication successful.")
                     # Populate certificate details from the last step output

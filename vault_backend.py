@@ -11,6 +11,33 @@ from typing import Callable, Optional, Tuple
 
 StepCallback = Callable[[str, bool, str], None]
 
+# Module-level cancel tracking
+_current_process: Optional[subprocess.Popen] = None
+_cancel_requested = False
+
+
+def request_cancel() -> None:
+    """Set cancel flag and terminate the current subprocess if any."""
+    global _cancel_requested, _current_process
+    _cancel_requested = True
+    if _current_process is not None:
+        try:
+            _current_process.terminate()
+        except OSError:
+            pass
+
+
+def reset_cancel() -> None:
+    """Reset the cancel flag and process reference."""
+    global _cancel_requested, _current_process
+    _cancel_requested = False
+    _current_process = None
+
+
+def is_cancelled() -> bool:
+    """Return whether cancellation has been requested."""
+    return _cancel_requested
+
 
 def _expand_key_path(config: dict) -> str:
     """Expand the SSH key path from config."""
@@ -81,21 +108,28 @@ def vault_login(config: dict, callback: Optional[StepCallback] = None) -> Tuple[
     role = config["role"]
     env = _vault_env(config)
 
+    global _current_process
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             [vault_cli, "login", "-method=oidc", f"role={role}"],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             env=env,
-            timeout=300,
         )
-        output = result.stdout + result.stderr
-        success = result.returncode == 0
-        output = output.strip()
+        _current_process = proc
+        stdout, stderr = proc.communicate(timeout=300)
+        _current_process = None
+        output = (stdout + stderr).strip()
+        success = proc.returncode == 0
         if callback is not None:
             callback("vault_login", success, output)
         return (success, output)
     except subprocess.TimeoutExpired:
+        _current_process = None
+        if proc is not None:
+            proc.kill()
+            proc.communicate()
         output = "OIDC login timed out after 5 minutes"
         if callback is not None:
             callback("vault_login", False, output)
@@ -130,8 +164,9 @@ def sign_ssh_key(config: dict, callback: Optional[StepCallback] = None) -> Tuple
     cert_path = ssh_key + "-cert.pub"
     env = _vault_env(config)
 
+    global _current_process
     try:
-        result = subprocess.run(
+        proc = subprocess.Popen(
             [
                 vault_cli,
                 "write",
@@ -139,18 +174,22 @@ def sign_ssh_key(config: dict, callback: Optional[StepCallback] = None) -> Tuple
                 f"ssh-client-signer/sign/{role}",
                 f"public_key=@{ssh_pub}",
             ],
-            capture_output=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             text=True,
             env=env,
         )
+        _current_process = proc
+        stdout, stderr = proc.communicate()
+        _current_process = None
 
-        if result.returncode != 0:
-            output = (result.stdout + result.stderr).strip()
+        if proc.returncode != 0:
+            output = (stdout + stderr).strip()
             if callback is not None:
                 callback("sign_ssh_key", False, output)
             return (False, output)
 
-        signed_key = result.stdout.strip()
+        signed_key = stdout.strip()
         if not signed_key:
             output = "Vault returned empty signed key."
             if callback is not None:
@@ -332,7 +371,13 @@ def run_full_auth(
     ]
 
     for step_name, step_func in steps:
+        if is_cancelled():
+            return (False, "Cancelled")
+
         success, output = step_func(config, callback=step_callback)
+
+        if is_cancelled():
+            return (False, "Cancelled")
 
         if not success:
             return (False, f"Failed at {step_name}: {output}")
