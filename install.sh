@@ -3,6 +3,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+if [ "$(id -u)" -ne 0 ]; then
+    echo "Error: must run as root (use: sudo bash install.sh)"
+    exit 1
+fi
+
 echo "Installing VaultSign..."
 
 # Create symlink in /usr/local/bin
