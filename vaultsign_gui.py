@@ -17,7 +17,7 @@ from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from config import load_config, save_config  # noqa: E402
 from vault_backend import (  # noqa: E402
-    check_token_status, renew_token, request_cancel, reset_cancel, run_full_auth,
+    check_token_status, list_oidc_roles, renew_token, request_cancel, reset_cancel, run_full_auth,
 )
 
 # Human-readable labels for each backend step.
@@ -108,6 +108,12 @@ class VaultSignWindow(Adw.ApplicationWindow):
         current_role = self.config.get("role", "")
         if current_role in saved_roles:
             self.role_combo_row.set_selected(saved_roles.index(current_role))
+        fetch_roles_button = Gtk.Button.new_from_icon_name("view-refresh-symbolic")
+        fetch_roles_button.set_tooltip_text("Fetch roles from Vault")
+        fetch_roles_button.set_valign(Gtk.Align.CENTER)
+        fetch_roles_button.add_css_class("flat")
+        fetch_roles_button.connect("clicked", self._on_fetch_roles)
+        self.role_combo_row.add_suffix(fetch_roles_button)
         auth_group.add(self.role_combo_row)
 
         # Custom role entry row (takes precedence when non-empty)
@@ -324,6 +330,36 @@ class VaultSignWindow(Adw.ApplicationWindow):
         return True
 
     # --- Signal handlers ---
+
+    def _on_fetch_roles(self, _button):
+        """Fetch available roles from Vault in background."""
+        self._append_log("Fetching roles from Vault...")
+
+        def _fetch():
+            roles = list_oidc_roles(self._collect_config())
+
+            def _update_ui():
+                if roles is None:
+                    self._append_log("Could not fetch roles (need valid token first?)")
+                    toast = Adw.Toast(title="Could not fetch roles")
+                    self.toast_overlay.add_toast(toast)
+                    return False
+
+                existing = set(self.role_model.get_string(i) for i in range(self.role_model.get_n_items()))
+                added = 0
+                for role in roles:
+                    if role not in existing:
+                        self.role_model.append(role)
+                        added += 1
+
+                self._append_log(f"Found {len(roles)} roles, added {added} new.")
+                toast = Adw.Toast(title=f"Found {len(roles)} roles")
+                self.toast_overlay.add_toast(toast)
+                return False
+
+            GLib.idle_add(_update_ui)
+
+        threading.Thread(target=_fetch, daemon=True).start()
 
     def _on_save_settings(self, _button):
         """Persist current form values to config.json and show a toast."""
