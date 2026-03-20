@@ -1,0 +1,2 @@
+#!/bin/bash
+exec /usr/bin/python3 /opt/vaultsign/vaultsign_gui.py "$@"
