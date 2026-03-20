@@ -13,7 +13,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, GLib, Gtk  # noqa: E402
+from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
 from config import load_config, save_config  # noqa: E402
 from vault_backend import (  # noqa: E402
@@ -220,6 +220,8 @@ class VaultSignWindow(Adw.ApplicationWindow):
         GLib.timeout_add_seconds(120, self._update_token_status)
         GLib.timeout_add_seconds(120, self._check_and_renew_token)
 
+        self._setup_shortcuts()
+
     # --- Helpers ---
 
     def get_active_role(self) -> str:
@@ -346,6 +348,25 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
         threading.Thread(target=_do_renew, daemon=True).start()
         return True
+
+    def _setup_shortcuts(self):
+        """Set up keyboard shortcuts."""
+        app = self.get_application()
+
+        action = Gio.SimpleAction.new("authenticate", None)
+        action.connect("activate", lambda *_: self._on_authenticate(None) if self.auth_button.get_sensitive() else None)
+        self.add_action(action)
+        app.set_accels_for_action("win.authenticate", ["<Control>Return"])
+
+        action = Gio.SimpleAction.new("save-settings", None)
+        action.connect("activate", lambda *_: self._on_save_settings(None))
+        self.add_action(action)
+        app.set_accels_for_action("win.save-settings", ["<Control>s"])
+
+        action = Gio.SimpleAction.new("cancel", None)
+        action.connect("activate", lambda *_: self._on_cancel(None) if self.cancel_button.get_sensitive() else None)
+        self.add_action(action)
+        app.set_accels_for_action("win.cancel", ["Escape"])
 
     # --- Signal handlers ---
 
