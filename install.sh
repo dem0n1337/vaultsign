@@ -18,4 +18,12 @@ echo "  Created symlink /usr/local/bin/vaultsign -> $SCRIPT_DIR/vaultsign"
 cp "$SCRIPT_DIR/vaultsign.desktop" /usr/share/applications/vaultsign.desktop
 echo "  Installed desktop file to /usr/share/applications/vaultsign.desktop"
 
+# Install icon
+mkdir -p /usr/share/icons/hicolor/scalable/apps
+cp "$SCRIPT_DIR/icons/vaultsign.svg" /usr/share/icons/hicolor/scalable/apps/vaultsign.svg
+echo "  Installed icon to /usr/share/icons/hicolor/scalable/apps/vaultsign.svg"
+
+# Update icon cache
+gtk-update-icon-cache /usr/share/icons/hicolor/ 2>/dev/null || true
+
 echo "VaultSign installed successfully."

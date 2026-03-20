@@ -2,7 +2,7 @@
 Name=VaultSign
 Comment=HashiCorp Vault OIDC Authentication & SSH Key Signing
 Exec=/opt/vaultsign/vaultsign
-Icon=dialog-password
+Icon=vaultsign
 Terminal=false
 Type=Application
 Categories=Utility;Security;
