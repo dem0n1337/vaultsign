@@ -11,7 +11,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, GLib, Gtk, Pango  # noqa: E402
+from gi.repository import Adw, Gtk  # noqa: E402
 
 from config import load_config, save_config  # noqa: E402
 
@@ -159,6 +159,8 @@ class VaultSignWindow(Adw.ApplicationWindow):
         if custom:
             return custom
         idx = self.role_combo_row.get_selected()
+        if idx == Gtk.INVALID_LIST_POSITION or idx >= self.role_model.get_n_items():
+            return ""
         item = self.role_model.get_string(idx)
         return item if item else ""
 
@@ -171,9 +173,9 @@ class VaultSignWindow(Adw.ApplicationWindow):
             saved_roles.append(role)
             self.role_model.append(role)
         return {
-            "vault_addr": self.vault_addr_row.get_text(),
-            "vault_cli_path": self.vault_cli_row.get_text(),
-            "ssh_key_path": self.ssh_key_row.get_text(),
+            "vault_addr": self.vault_addr_row.get_text().strip(),
+            "vault_cli_path": self.vault_cli_row.get_text().strip(),
+            "ssh_key_path": self.ssh_key_row.get_text().strip(),
             "role": role,
             "saved_roles": saved_roles,
         }
