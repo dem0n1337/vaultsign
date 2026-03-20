@@ -62,6 +62,41 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.token_status_button.set_child(token_box)
         header.pack_start(self.token_status_button)
 
+        # Hamburger menu
+        menu_button = Gtk.MenuButton()
+        menu_button.set_icon_name("open-menu-symbolic")
+        menu_button.set_tooltip_text("Application menu")
+        header.pack_end(menu_button)
+
+        menu = Gio.Menu()
+        theme_section = Gio.Menu()
+        theme_section.append("System theme", "win.theme::system")
+        theme_section.append("Light theme", "win.theme::light")
+        theme_section.append("Dark theme", "win.theme::dark")
+        menu.append_section("Theme", theme_section)
+
+        about_section = Gio.Menu()
+        about_section.append("About VaultSign", "win.about")
+        menu.append_section(None, about_section)
+
+        menu_button.set_menu_model(menu)
+
+        # Theme action
+        theme_action = Gio.SimpleAction.new_stateful(
+            "theme", GLib.VariantType.new("s"),
+            GLib.Variant.new_string(self.config.get("theme", "system"))
+        )
+        theme_action.connect("change-state", self._on_theme_changed)
+        self.add_action(theme_action)
+
+        # About action
+        about_action = Gio.SimpleAction.new("about", None)
+        about_action.connect("activate", self._on_about)
+        self.add_action(about_action)
+
+        # Apply theme on startup
+        self._apply_theme(self.config.get("theme", "system"))
+
         # Toast overlay wraps scrollable content so toasts appear on top
         self.toast_overlay = Adw.ToastOverlay()
         toolbar_view.set_content(self.toast_overlay)
@@ -367,6 +402,39 @@ class VaultSignWindow(Adw.ApplicationWindow):
         action.connect("activate", lambda *_: self._on_cancel(None) if self.cancel_button.get_sensitive() else None)
         self.add_action(action)
         app.set_accels_for_action("win.cancel", ["Escape"])
+
+    # --- Theme & About ---
+
+    def _on_theme_changed(self, action, value):
+        theme = value.get_string()
+        action.set_state(value)
+        self._apply_theme(theme)
+        self.config["theme"] = theme
+        save_config(self.config)
+
+    def _apply_theme(self, theme: str):
+        style_manager = Adw.StyleManager.get_default()
+        if theme == "dark":
+            style_manager.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+        elif theme == "light":
+            style_manager.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
+        else:
+            style_manager.set_color_scheme(Adw.ColorScheme.DEFAULT)
+
+    def _on_about(self, *args):
+        dialog = Adw.AboutDialog(
+            application_name="VaultSign",
+            application_icon="dialog-password",
+            developer_name="VaultSign Contributors",
+            version="2.0.0",
+            website="https://github.com/dem0n1337/vaultsign",
+            issue_url="https://github.com/dem0n1337/vaultsign/issues",
+            license_type=Gtk.License.MIT_X11,
+            developers=["dem0n1337"],
+            copyright="© 2026 VaultSign Contributors",
+            comments="HashiCorp Vault OIDC Authentication & SSH Key Signing",
+        )
+        dialog.present(self)
 
     # --- Signal handlers ---
 

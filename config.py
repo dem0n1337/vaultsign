@@ -19,6 +19,7 @@ DEFAULTS = {
     "role": "",
     "saved_roles": [],
     "cert_ttl": "",  # empty = server default
+    "theme": "system",
 }
 
 
