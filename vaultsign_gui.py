@@ -767,6 +767,22 @@ class VaultSignApp(Adw.Application):
         if profile.get("show_tray", True):
             self.expiry_monitor.start()
 
+        import webbrowser
+        from updater import check_for_update
+
+        def _check_update():
+            update_info = check_for_update()
+            if update_info:
+                def _notify():
+                    toast = Adw.Toast(title=f"VaultSign {update_info['version']} available")
+                    toast.set_button_label("Details")
+                    toast.connect("button-clicked", lambda _: webbrowser.open(update_info["url"]))
+                    win.toast_overlay.add_toast(toast)
+                    return False
+                GLib.idle_add(_notify)
+
+        threading.Thread(target=_check_update, daemon=True).start()
+
 
 def main():
     app = VaultSignApp()
