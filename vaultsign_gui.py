@@ -1,19 +1,30 @@
 """VaultSign GTK4/libadwaita GUI.
 
 Main application window with all form fields, log output, and certificate
-details view. Backend wiring is handled separately (Task 4).
+details view. Wired to vault_backend for async authentication execution.
 """
 
 import sys
+import threading
 
 import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gtk  # noqa: E402
+from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from config import load_config, save_config  # noqa: E402
+from vault_backend import run_full_auth  # noqa: E402
+
+# Human-readable labels for each backend step.
+_STEP_LABELS = {
+    "check_prerequisites": "Checking prerequisites\u2026",
+    "vault_login": "Logging in\u2026",
+    "sign_ssh_key": "Signing key\u2026",
+    "add_to_ssh_agent": "Adding to agent\u2026",
+    "get_certificate_details": "Reading certificate details\u2026",
+}
 
 
 class VaultSignWindow(Adw.ApplicationWindow):
@@ -33,9 +44,13 @@ class VaultSignWindow(Adw.ApplicationWindow):
         header = Adw.HeaderBar()
         toolbar_view.add_top_bar(header)
 
+        # Toast overlay wraps scrollable content so toasts appear on top
+        self.toast_overlay = Adw.ToastOverlay()
+        toolbar_view.set_content(self.toast_overlay)
+
         # Scrollable main content
         scroll = Gtk.ScrolledWindow(vexpand=True, hscrollbar_policy=Gtk.PolicyType.NEVER)
-        toolbar_view.set_content(scroll)
+        self.toast_overlay.set_child(scroll)
 
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         main_box.set_margin_top(12)
@@ -91,6 +106,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.auth_button = Gtk.Button(label="Authenticate")
         self.auth_button.add_css_class("suggested-action")
         self.auth_button.add_css_class("pill")
+        self.auth_button.connect("clicked", self._on_authenticate)
         button_box.append(self.auth_button)
 
         self.save_button = Gtk.Button(label="Save Settings")
@@ -180,11 +196,65 @@ class VaultSignWindow(Adw.ApplicationWindow):
             "saved_roles": saved_roles,
         }
 
+    def _append_log(self, text: str) -> None:
+        """Append text to the log buffer. Must be called on the main thread."""
+        end_iter = self.log_buffer.get_end_iter()
+        self.log_buffer.insert(end_iter, text + "\n")
+
+    # --- Signal handlers ---
+
     def _on_save_settings(self, _button):
-        """Persist current form values to config.json."""
+        """Persist current form values to config.json and show a toast."""
         self.config = self._collect_config()
         save_config(self.config)
         self.status_label.set_text("Settings saved.")
+        toast = Adw.Toast(title="Settings saved")
+        self.toast_overlay.add_toast(toast)
+
+    def _on_authenticate(self, _button):
+        """Collect config, disable button, and run auth in a background thread."""
+        config = self._collect_config()
+
+        # Disable button and clear log
+        self.auth_button.set_sensitive(False)
+        self.log_buffer.set_text("")
+        self.cert_buffer.set_text("No certificate loaded.")
+        self.cert_expander.set_expanded(False)
+        self.status_label.set_text("Authenticating\u2026")
+
+        def step_callback(step_name: str, success: bool, output: str) -> None:
+            """Called from worker thread after each step completes."""
+            status = "OK" if success else "FAILED"
+            label = _STEP_LABELS.get(step_name, step_name)
+
+            def _update_ui():
+                self._append_log(f"[{step_name}] {status}")
+                if output:
+                    self._append_log(output)
+                self.status_label.set_text(label)
+                return False  # Remove idle source
+
+            GLib.idle_add(_update_ui)
+
+        def worker() -> None:
+            """Run the full auth flow in a background thread."""
+            success, output = run_full_auth(config, step_callback=step_callback)
+
+            def _finish():
+                self.auth_button.set_sensitive(True)
+                if success:
+                    self.status_label.set_text("Authentication successful.")
+                    # Populate certificate details from the last step output
+                    self.cert_buffer.set_text(output)
+                    self.cert_expander.set_expanded(True)
+                else:
+                    self.status_label.set_text(f"Error: {output}")
+                return False
+
+            GLib.idle_add(_finish)
+
+        thread = threading.Thread(target=worker, daemon=True)
+        thread.start()
 
 
 class VaultSignApp(Adw.Application):
