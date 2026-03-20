@@ -4,6 +4,7 @@ Main application window with all form fields, log output, and certificate
 details view. Wired to vault_backend for async authentication execution.
 """
 
+import os
 import sys
 import threading
 
@@ -15,7 +16,9 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk  # noqa: E402
 
 from config import load_config, save_config  # noqa: E402
-from vault_backend import request_cancel, reset_cancel, run_full_auth  # noqa: E402
+from vault_backend import (  # noqa: E402
+    check_token_status, renew_token, request_cancel, reset_cancel, run_full_auth,
+)
 
 # Human-readable labels for each backend step.
 _STEP_LABELS = {
@@ -43,6 +46,21 @@ class VaultSignWindow(Adw.ApplicationWindow):
 
         header = Adw.HeaderBar()
         toolbar_view.add_top_bar(header)
+
+        # Token status indicator in header
+        self.token_status_button = Gtk.Button()
+        self.token_status_button.add_css_class("flat")
+        self.token_status_button.set_tooltip_text("Vault token status")
+        self.token_status_button.connect("clicked", lambda _: self._update_token_status())
+
+        token_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        self.token_icon = Gtk.Image.new_from_icon_name("dialog-warning-symbolic")
+        self.token_label = Gtk.Label(label="No token")
+        self.token_label.add_css_class("caption")
+        token_box.append(self.token_icon)
+        token_box.append(self.token_label)
+        self.token_status_button.set_child(token_box)
+        header.pack_start(self.token_status_button)
 
         # Toast overlay wraps scrollable content so toasts appear on top
         self.toast_overlay = Adw.ToastOverlay()
@@ -174,6 +192,20 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.cert_buffer.set_text("No certificate loaded.")
         cert_scroll.set_child(self.cert_view)
 
+        # --- Certificate expiry countdown ---
+        self.cert_status_label = Gtk.Label(label="No certificate")
+        self.cert_status_label.set_halign(Gtk.Align.START)
+        self.cert_status_label.set_margin_start(12)
+        self.cert_status_label.add_css_class("dim-label")
+        main_box.append(self.cert_status_label)
+
+        # Startup: check existing session and start timers
+        GLib.idle_add(self._check_existing_session)
+        self._update_cert_status()
+        GLib.timeout_add_seconds(60, self._update_cert_status)
+        GLib.timeout_add_seconds(120, self._update_token_status)
+        GLib.timeout_add_seconds(120, self._check_and_renew_token)
+
     # --- Helpers ---
 
     def get_active_role(self) -> str:
@@ -210,6 +242,86 @@ class VaultSignWindow(Adw.ApplicationWindow):
         # Auto-scroll to bottom
         end_iter = self.log_buffer.get_end_iter()
         self.log_view.scroll_to_iter(end_iter, 0.0, False, 0.0, 0.0)
+
+    # --- Status monitoring ---
+
+    def _update_cert_status(self) -> bool:
+        """Update certificate expiry countdown. Returns True to keep timer running."""
+        from cert_utils import parse_cert_expiry
+        ssh_key = os.path.expanduser(self.config.get("ssh_key_path", ""))
+        cert_path = ssh_key + "-cert.pub"
+        info = parse_cert_expiry(cert_path)
+        if info is None:
+            self.cert_status_label.set_text("No certificate")
+            self.cert_status_label.remove_css_class("error")
+            return True
+        if info["is_expired"]:
+            self.cert_status_label.set_text("Certificate EXPIRED")
+            self.cert_status_label.add_css_class("error")
+        else:
+            self.cert_status_label.set_text(f"Certificate valid for {info['remaining_human']}")
+            self.cert_status_label.remove_css_class("error")
+        return True
+
+    def _update_token_status(self) -> bool:
+        """Check vault token in background and update header indicator."""
+        def _check():
+            info = check_token_status(self._collect_config())
+
+            def _update_ui():
+                if info and info["ttl"] > 0:
+                    hours = info["ttl"] // 3600
+                    mins = (info["ttl"] % 3600) // 60
+                    self.token_label.set_text(f"Token: {hours}h {mins}m")
+                    self.token_icon.set_from_icon_name("emblem-ok-symbolic")
+                else:
+                    self.token_label.set_text("No token")
+                    self.token_icon.set_from_icon_name("dialog-warning-symbolic")
+                return False
+
+            GLib.idle_add(_update_ui)
+
+        threading.Thread(target=_check, daemon=True).start()
+        return True
+
+    def _check_existing_session(self):
+        """Check if we already have a valid Vault token on startup."""
+        def _check():
+            info = check_token_status(self._collect_config())
+
+            def _update_ui():
+                if info and info["ttl"] > 0:
+                    hours = info["ttl"] // 3600
+                    mins = (info["ttl"] % 3600) // 60
+                    self._append_log(f"Existing valid token found (TTL: {hours}h {mins}m)")
+                    self.status_label.set_text(f"Authenticated (token: {hours}h {mins}m remaining)")
+                    self._update_cert_status()
+                    self._update_token_status()
+                else:
+                    self._append_log("No valid token found. Please authenticate.")
+                return False
+
+            GLib.idle_add(_update_ui)
+
+        threading.Thread(target=_check, daemon=True).start()
+        return False
+
+    def _check_and_renew_token(self) -> bool:
+        """Check token TTL and renew if below threshold."""
+        def _do_renew():
+            config = self._collect_config()
+            info = check_token_status(config)
+            if info and info.get("renewable") and info["ttl"] > 0 and info["ttl"] < 1800:
+                ok, output = renew_token(config)
+                def _notify():
+                    if ok:
+                        self._append_log("Token auto-renewed")
+                        self._update_token_status()
+                    return False
+                GLib.idle_add(_notify)
+
+        threading.Thread(target=_do_renew, daemon=True).start()
+        return True
 
     # --- Signal handlers ---
 
@@ -269,6 +381,8 @@ class VaultSignWindow(Adw.ApplicationWindow):
                     # Populate certificate details from the last step output
                     self.cert_buffer.set_text(output)
                     self.cert_expander.set_expanded(True)
+                    self._update_cert_status()
+                    self._update_token_status()
                 else:
                     first_line = output.split("\n")[0][:80]
                     self.status_label.set_text(f"Error: {first_line}")
