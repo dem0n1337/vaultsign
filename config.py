@@ -4,6 +4,7 @@ Handles loading and saving settings from ~/.config/vaultsign/config.json.
 Creates default configuration if none exists.
 """
 
+import copy
 import json
 import os
 from pathlib import Path
@@ -22,7 +23,7 @@ DEFAULTS = {
 
 def load_config() -> dict:
     """Load configuration from disk, returning defaults for any missing keys."""
-    config = dict(DEFAULTS)
+    config = copy.deepcopy(DEFAULTS)
     if CONFIG_FILE.exists():
         try:
             with open(CONFIG_FILE, "r") as f:
