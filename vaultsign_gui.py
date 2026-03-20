@@ -16,7 +16,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gio, GLib, Gtk  # noqa: E402
 
-from config import load_config, save_config, get_active_profile, set_active_profile, save_profile, delete_profile, list_profiles, DEFAULTS  # noqa: E402
+from config import load_config, save_config, get_active_profile, set_active_profile, save_profile, delete_profile, list_profiles, DEFAULTS, CONFIG_FILE  # noqa: E402
 from vault_backend import (  # noqa: E402
     check_token_status, list_oidc_roles, renew_token, request_cancel, reset_cancel, run_full_auth,
 )
@@ -39,6 +39,7 @@ class VaultSignWindow(Adw.ApplicationWindow):
         self.set_title("VaultSign")
         self.set_default_size(520, 720)
 
+        self._is_first_run = not CONFIG_FILE.exists()
         self.config = load_config()
         self.profile = get_active_profile(self.config)
 
@@ -311,6 +312,9 @@ class VaultSignWindow(Adw.ApplicationWindow):
         GLib.timeout_add_seconds(120, self._check_and_renew_token)
 
         self._setup_shortcuts()
+
+        if self._is_first_run:
+            GLib.idle_add(self._show_first_run_wizard)
 
     # --- Helpers ---
 
@@ -640,6 +644,50 @@ class VaultSignWindow(Adw.ApplicationWindow):
         request_cancel()
         self.cancel_button.set_sensitive(False)
         self.status_label.set_text("Cancelling\u2026")
+
+    def _show_first_run_wizard(self):
+        dialog = Adw.MessageDialog(
+            transient_for=self,
+            heading="Welcome to VaultSign",
+            body="Let's set up your Vault connection.\n\nYou can change these settings later.",
+        )
+
+        box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        box.set_margin_top(8)
+
+        addr_entry = Adw.EntryRow(title="Vault Address")
+        addr_entry.set_text(self.profile.get("vault_addr", ""))
+        box.append(addr_entry)
+
+        cli_entry = Adw.EntryRow(title="Vault CLI Path")
+        cli_entry.set_text(self.profile.get("vault_cli_path", ""))
+        box.append(cli_entry)
+
+        key_entry = Adw.EntryRow(title="SSH Key Path")
+        key_entry.set_text(self.profile.get("ssh_key_path", ""))
+        box.append(key_entry)
+
+        role_entry = Adw.EntryRow(title="Default Role")
+        role_entry.set_text(self.profile.get("role", ""))
+        box.append(role_entry)
+
+        dialog.set_extra_child(box)
+        dialog.add_response("skip", "Skip")
+        dialog.add_response("save", "Save & Continue")
+        dialog.set_response_appearance("save", Adw.ResponseAppearance.SUGGESTED)
+        dialog.connect("response", self._on_wizard_response, addr_entry, cli_entry, key_entry, role_entry)
+        dialog.present()
+        return False
+
+    def _on_wizard_response(self, dialog, response, addr_entry, cli_entry, key_entry, role_entry):
+        if response == "save":
+            self.vault_addr_row.set_text(addr_entry.get_text())
+            self.vault_cli_row.set_text(cli_entry.get_text())
+            self.ssh_key_row.set_text(key_entry.get_text())
+            role = role_entry.get_text().strip()
+            if role:
+                self.custom_role_row.set_text(role)
+            self._on_save_settings(None)
 
     def _on_authenticate(self, _button):
         """Collect config, disable button, and run auth in a background thread."""
