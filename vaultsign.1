@@ -1,0 +1,102 @@
+.TH VAULTSIGN 1 "2026-03-25" "VaultSign" "User Commands"
+.SH NAME
+vaultsign \- OIDC authentication and SSH key signing for HashiCorp Vault and OpenBao
+.SH SYNOPSIS
+.B vaultsign
+[\fI\-\-minimize\fR]
+[\fI\-\-debug\fR]
+.SH DESCRIPTION
+.B VaultSign
+is a GTK4/libadwaita desktop application that authenticates users via OIDC
+(OpenID Connect) to a HashiCorp Vault or OpenBao server and signs SSH keys
+using the server's SSH client signer backend.
+.PP
+The signed certificate and private key are automatically added to the local
+ssh\-agent, enabling passwordless SSH access to hosts that trust the
+Vault/OpenBao CA.
+.SH OPTIONS
+.TP
+.BR \-m ", " \-\-minimize
+Start minimized to the system tray without showing the main window.
+Useful for autostart at login.
+.TP
+.BR \-\-debug
+Enable the GTK Inspector and verbose GLib logging for troubleshooting.
+.SH FEATURES
+.TP
+.B OIDC Authentication
+Opens a browser for OIDC login, then stores the resulting Vault token.
+.TP
+.B SSH Key Signing
+Signs the configured SSH public key via the Vault SSH client signer backend.
+.TP
+.B Certificate Monitoring
+Displays an animated countdown ring showing remaining certificate validity.
+Sends desktop notifications when the certificate is about to expire.
+.TP
+.B Multiple Profiles
+Supports multiple server/role configurations that can be switched,
+exported, and imported.
+.TP
+.B SSH Agent Management
+Lists keys loaded in ssh\-agent with the ability to add or remove them.
+.TP
+.B System Tray
+Optional system tray icon (requires AppIndicator3) showing certificate status.
+.TP
+.B Session History
+Logs authentication and renewal events for audit purposes.
+.SH CONFIGURATION
+Configuration is stored in
+.IR ~/.config/vaultsign/config.json .
+.PP
+Each profile contains:
+.TP
+.B vault_addr
+URL of the Vault/OpenBao server (e.g., https://vault.example.com:8200/).
+.TP
+.B vault_cli_path
+Path to the
+.B vault
+or
+.B bao
+CLI binary. Can be just the binary name if it is in PATH.
+.TP
+.B ssh_key_path
+Path to the SSH private key (e.g., ~/.ssh/id_ed25519).
+The public key is assumed to be at the same path with a .pub extension.
+.TP
+.B role
+OIDC role name for authentication and key signing.
+.TP
+.B expiry_warn_minutes
+Number of minutes before certificate expiry to send a warning notification
+(default: 15).
+.SH FILES
+.TP
+.I ~/.config/vaultsign/config.json
+Application configuration and profiles.
+.TP
+.I ~/.config/vaultsign/history.json
+Session history log (authentication and renewal events).
+.TP
+.I ~/.config/autostart/vaultsign.desktop
+Autostart desktop entry (created when "Start at Login" is enabled).
+.TP
+.I SSH_KEY_PATH\-cert.pub
+Signed SSH certificate written by the signing operation.
+.SH ENVIRONMENT
+.TP
+.B VAULT_ADDR
+Set automatically from the active profile's server address when invoking
+the vault/bao CLI.
+.SH SEE ALSO
+.BR vault (1),
+.BR bao (1),
+.BR ssh\-agent (1),
+.BR ssh\-add (1),
+.BR ssh\-keygen (1)
+.SH BUGS
+Report bugs at https://github.com/dem0n1337/vaultsign/issues
+.SH AUTHOR
+Jakub Demovic

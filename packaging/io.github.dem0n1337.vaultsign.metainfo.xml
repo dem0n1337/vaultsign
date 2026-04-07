@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.dem0n1337.vaultsign</id>
+  <name>VaultSign</name>
+  <summary>HashiCorp Vault OIDC Authentication &amp; SSH Key Signing</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <description>
+    <p>VaultSign provides a desktop GUI for authenticating with HashiCorp Vault
+    using OIDC and signing SSH certificates. Features include multiple config
+    profiles, dynamic role fetching, certificate expiry monitoring, and
+    desktop notifications.</p>
+  </description>
+  <launchable type="desktop-id">io.github.dem0n1337.vaultsign.desktop</launchable>
+  <url type="homepage">https://github.com/dem0n1337/vaultsign</url>
+  <url type="bugtracker">https://github.com/dem0n1337/vaultsign/issues</url>
+  <content_rating type="oars-1.1" />
+  <releases>
+    <release version="2.0.0" date="2026-03-20">
+      <description><p>Major release with v2 enhancements: config profiles, certificate
+      expiry monitoring, token auto-renewal, theme toggle, keyboard shortcuts,
+      dynamic role fetching, and packaging support.</p></description>
+    </release>
+  </releases>
+</component>

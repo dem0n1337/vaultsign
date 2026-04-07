@@ -1,0 +1,11 @@
+#!/bin/bash
+if [[ "$1" == "--debug" || "$1" == "-d" ]]; then
+    shift
+    export G_MESSAGES_DEBUG=all
+    export GTK_DEBUG=interactive
+    export GOBJECT_DEBUG=instance-count
+    echo "[vaultsign] Debug mode enabled — GTK Inspector + full GLib logging"
+    exec /usr/bin/python3 -Wd /opt/vaultsign/vaultsign_gui.py "$@"
+else
+    exec /usr/bin/python3 /opt/vaultsign/vaultsign_gui.py "$@"
+fi

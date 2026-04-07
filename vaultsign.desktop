@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=VaultSign
+Comment=OIDC Authentication & SSH Key Signing for HashiCorp Vault and OpenBao
+Exec=/opt/vaultsign/vaultsign
+Icon=vaultsign
+Terminal=false
+Type=Application
+Categories=Utility;Security;
+Keywords=vault;openbao;bao;ssh;authentication;oidc;
