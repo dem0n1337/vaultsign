@@ -118,17 +118,30 @@ sudo bash install.sh        # builds if needed, installs to /usr/local/bin
 sudo bash install.sh --uninstall
 ```
 
-### RPM (Fedora / RHEL)
+### Prebuilt packages (RPM / DEB)
+
+Every tagged release publishes `.rpm` and `.deb` packages (built by GitHub
+Actions, targeting `webkit2gtk-4.1`). Grab them from the
+[Releases page](https://github.com/dem0n1337/vaultsign/releases):
 
 ```bash
-rpmbuild -ba packaging/vaultsign.spec
-sudo dnf install ~/rpmbuild/RPMS/x86_64/vaultsign-*.rpm
+# Fedora 41+ / RHEL
+sudo dnf install ./vaultsign-*.rpm
+
+# Ubuntu 24.04+ / Debian
+sudo apt install ./vaultsign_*.deb
 ```
 
-### Flatpak
+> Targets `webkit2gtk-4.1`, so Fedora 41+ and Ubuntu 24.04+. On Ubuntu 22.04
+> (webkit 4.0) build from source without the `webkit2_41` tag.
+
+### Build packages locally
 
 ```bash
-flatpak-builder --install --user build packaging/io.github.dem0n1337.vaultsign.yml
+go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+wails build -tags webkit2_41
+VAULTSIGN_VERSION=3.0.0 nfpm package -f packaging/nfpm.yaml -p rpm -t dist/
+VAULTSIGN_VERSION=3.0.0 nfpm package -f packaging/nfpm.yaml -p deb -t dist/
 ```
 
 ### Dependencies

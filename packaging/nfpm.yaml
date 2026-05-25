@@ -1,0 +1,47 @@
+# nfpm config — single source for both RPM and DEB.
+# Build: nfpm package -f packaging/nfpm.yaml -p rpm -t dist/
+#        nfpm package -f packaging/nfpm.yaml -p deb -t dist/
+# Targets webkit2gtk-4.1 (Fedora 41+, Ubuntu 24.04+).
+name: vaultsign
+arch: amd64
+platform: linux
+version: ${VAULTSIGN_VERSION}
+section: utils
+priority: optional
+maintainer: Jakub Demovic <jakub.demovic96@gmail.com>
+description: |
+  HashiCorp Vault & OpenBao OIDC authentication and SSH key signing (Wails + React).
+  Native Vault API and ssh-agent integration; modern desktop UI; headless CLI.
+vendor: dem0n1337
+homepage: https://github.com/dem0n1337/vaultsign
+license: MIT
+
+contents:
+  - src: ./build/bin/vaultsign
+    dst: /usr/bin/vaultsign
+    file_info:
+      mode: 0755
+  - src: ./vaultsign.desktop
+    dst: /usr/share/applications/io.github.dem0n1337.vaultsign.desktop
+  - src: ./icons/vaultsign.svg
+    dst: /usr/share/icons/hicolor/scalable/apps/vaultsign.svg
+  - src: ./icons/vaultsign-256.png
+    dst: /usr/share/icons/hicolor/256x256/apps/vaultsign.png
+  - src: ./icons/vaultsign-128.png
+    dst: /usr/share/icons/hicolor/128x128/apps/vaultsign.png
+  - src: ./icons/vaultsign-48.png
+    dst: /usr/share/icons/hicolor/48x48/apps/vaultsign.png
+  - src: ./packaging/io.github.dem0n1337.vaultsign.metainfo.xml
+    dst: /usr/share/metainfo/io.github.dem0n1337.vaultsign.metainfo.xml
+  - src: ./vaultsign.1
+    dst: /usr/share/man/man1/vaultsign.1
+
+overrides:
+  rpm:
+    depends:
+      - webkit2gtk4.1
+      - gtk3
+  deb:
+    depends:
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
