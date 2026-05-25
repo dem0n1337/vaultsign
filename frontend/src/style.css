@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bg: #0e0e14;
+  --color-bg-soft: #16161f;
+  --color-card: #1b1b27;
+  --color-card-hi: #22222f;
+  --color-border: #2a2a3a;
+  --color-accent: #6d7bff;
+  --color-accent-2: #9b6dff;
+  --color-ok: #34d17a;
+  --color-warn: #ffbe1a;
+  --color-danger: #ff5a5a;
+  --font-sans: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+:root {
+  --bg: #0e0e14;
+  --bg-soft: #16161f;
+  --card: #1b1b27;
+  --card-hi: #22222f;
+  --border: #2a2a3a;
+  --fg: #e7e7f0;
+  --fg-muted: rgba(231, 231, 240, 0.55);
+  --fg-faint: rgba(231, 231, 240, 0.35);
+  --scroll: #33334a;
+}
+
+:root[data-theme="light"] {
+  --bg: #f3f4f8;
+  --bg-soft: #e9eaf1;
+  --card: #ffffff;
+  --card-hi: #f1f2f7;
+  --border: #d9dae6;
+  --fg: #1a1a24;
+  --fg-muted: rgba(26, 26, 36, 0.6);
+  --fg-faint: rgba(26, 26, 36, 0.4);
+  --scroll: #c7c8d6;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    radial-gradient(1200px 600px at 50% -10%, rgba(109, 123, 255, 0.18), transparent 60%),
+    radial-gradient(900px 500px at 100% 110%, rgba(155, 109, 255, 0.12), transparent 60%),
+    var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+  overflow: hidden;
+}
+
+/* semantic, theme-aware tokens (override Tailwind @theme statics at runtime) */
+.bg-bg { background-color: var(--bg); }
+.bg-bg-soft { background-color: var(--bg-soft); }
+.bg-card { background-color: var(--card); }
+.bg-card-hi { background-color: var(--card-hi); }
+.border-border { border-color: var(--border); }
+.t-fg { color: var(--fg); }
+.t-muted { color: var(--fg-muted); }
+.t-faint { color: var(--fg-faint); }
+
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+
+@keyframes spin-slow { to { transform: rotate(360deg); } }
+.animate-spin-slow { animation: spin-slow 1s linear infinite; }
+
+@keyframes pulse-ring {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+.pulse-ring { animation: pulse-ring 1.4s ease-in-out infinite; }
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fade-up 0.18s ease-out; }

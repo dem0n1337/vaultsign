@@ -1,27 +1,41 @@
-.TH VAULTSIGN 1 "2026-03-25" "VaultSign" "User Commands"
+.TH VAULTSIGN 1 "2026-05-25" "VaultSign 3.0" "User Commands"
 .SH NAME
 vaultsign \- OIDC authentication and SSH key signing for HashiCorp Vault and OpenBao
 .SH SYNOPSIS
 .B vaultsign
-[\fI\-\-minimize\fR]
-[\fI\-\-debug\fR]
+[\fIcommand\fR]
+[\fI\-\-profile NAME\fR]
+[\fI\-\-role NAME\fR]
 .SH DESCRIPTION
 .B VaultSign
-is a GTK4/libadwaita desktop application that authenticates users via OIDC
+is a desktop application (Wails + React) that authenticates users via OIDC
 (OpenID Connect) to a HashiCorp Vault or OpenBao server and signs SSH keys
-using the server's SSH client signer backend.
+using the server's SSH client signer backend. It uses the native Vault Go API
+and talks to ssh\-agent directly over its socket.
 .PP
 The signed certificate and private key are automatically added to the local
 ssh\-agent, enabling passwordless SSH access to hosts that trust the
 Vault/OpenBao CA.
+.SH COMMANDS
+.TP
+.B (none)
+Launch the graphical interface.
+.TP
+.B auth
+Run the full OIDC authentication and SSH signing flow headlessly.
+.TP
+.B status
+Print the current Vault token TTL, policies, and renewability.
+.TP
+.B version
+Print the version and exit.
 .SH OPTIONS
 .TP
-.BR \-m ", " \-\-minimize
-Start minimized to the system tray without showing the main window.
-Useful for autostart at login.
+.BR \-\-profile " " \fINAME\fR
+Use a specific configuration profile (for \fBauth\fR/\fBstatus\fR).
 .TP
-.BR \-\-debug
-Enable the GTK Inspector and verbose GLib logging for troubleshooting.
+.BR \-\-role " " \fINAME\fR
+Override the OIDC/signing role (for \fBauth\fR/\fBstatus\fR).
 .SH FEATURES
 .TP
 .B OIDC Authentication
@@ -55,12 +69,8 @@ Each profile contains:
 .B vault_addr
 URL of the Vault/OpenBao server (e.g., https://vault.example.com:8200/).
 .TP
-.B vault_cli_path
-Path to the
-.B vault
-or
-.B bao
-CLI binary. Can be just the binary name if it is in PATH.
+.B oidc_mount
+Vault OIDC auth method mount path (default: oidc).
 .TP
 .B ssh_key_path
 Path to the SSH private key (e.g., ~/.ssh/id_ed25519).
@@ -85,11 +95,6 @@ Autostart desktop entry (created when "Start at Login" is enabled).
 .TP
 .I SSH_KEY_PATH\-cert.pub
 Signed SSH certificate written by the signing operation.
-.SH ENVIRONMENT
-.TP
-.B VAULT_ADDR
-Set automatically from the active profile's server address when invoking
-the vault/bao CLI.
 .SH SEE ALSO
 .BR vault (1),
 .BR bao (1),

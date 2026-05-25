@@ -6,12 +6,11 @@
 
 **Desktop GUI for HashiCorp Vault & OpenBao OIDC Authentication & SSH Key Signing**
 
-![Python](https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![GTK4](https://img.shields.io/badge/GTK4-libadwaita-7F39FB?style=for-the-badge&logo=gtk&logoColor=white)
+![Go](https://img.shields.io/badge/Go-1.23+-00ADD8?style=for-the-badge&logo=go&logoColor=white)
+![Wails](https://img.shields.io/badge/Wails-React%20%2B%20Tailwind-DF0000?style=for-the-badge&logo=wails&logoColor=white)
 ![Linux](https://img.shields.io/badge/Linux-FCC624?style=for-the-badge&logo=linux&logoColor=black)
 ![License](https://img.shields.io/badge/License-MIT-yellow?style=for-the-badge)
-![CI](https://img.shields.io/github/actions/workflow/status/dem0n1337/vaultsign/ci.yml?style=for-the-badge&logo=github-actions&label=CI)
-![Version](https://img.shields.io/badge/Version-2.0.0-blue?style=for-the-badge)
+![Version](https://img.shields.io/badge/Version-3.0.0-blue?style=for-the-badge)
 
 <br>
 
@@ -25,7 +24,7 @@
 
 ## What is VaultSign?
 
-VaultSign is a native Linux desktop application that streamlines SSH certificate management through HashiCorp Vault or OpenBao. Instead of juggling CLI commands, browser tabs, and terminal sessions, VaultSign handles the entire OIDC authentication and SSH key signing flow in a clean GTK4 interface.
+VaultSign is a Linux desktop application that streamlines SSH certificate management through HashiCorp Vault or OpenBao. Instead of juggling CLI commands, browser tabs, and terminal sessions, VaultSign handles the entire OIDC authentication and SSH key signing flow in a modern UI (Wails + React + Tailwind). It talks to Vault through the **native Go API** and to **ssh-agent over its socket directly** — no `vault`/`ssh-add` subprocesses — and ships as a single binary with no Python runtime.
 
 ```
 Without VaultSign:                    With VaultSign:
@@ -43,11 +42,11 @@ Without VaultSign:                    With VaultSign:
 <td width="50%">
 
 ### Authentication
-- OIDC login via browser (Google, Okta, etc.)
+- OIDC login (Google, Okta, etc.) with an in-app waiting screen
+- Native Vault API — no `vault` CLI required
 - Automatic SSH key signing
-- SSH agent integration
-- Token auto-renewal
-- Certificate expiry monitoring
+- Native ssh-agent integration (no `ssh-add`)
+- Token reuse + renewal, certificate expiry monitoring
 
 </td>
 <td width="50%">
@@ -57,7 +56,7 @@ Without VaultSign:                    With VaultSign:
 - Dynamic role fetching from Vault
 - Session history with audit trail
 - Profile export/import (JSON)
-- CLI auto-detection (vault / bao)
+- Headless CLI (`vaultsign auth` / `status`)
 
 </td>
 </tr>
@@ -68,8 +67,8 @@ Without VaultSign:                    With VaultSign:
 - Token redaction in all logs
 - Secure file permissions (0600)
 - SSH key permission auto-fix
-- Core dump disabled
-- No external Python dependencies
+- Single binary, no Python runtime
+- System browser for OIDC (Google-compliant)
 
 </td>
 <td>
@@ -77,17 +76,31 @@ Without VaultSign:                    With VaultSign:
 ### Desktop Integration
 - Animated countdown ring for certificate TTL
 - Desktop notifications (expiry warnings)
-- System tray with AppIndicator
+- System tray (StatusNotifierItem) with quick re-sign
 - Light/Dark/System theme support
-- Keyboard shortcuts (Ctrl+Enter, Ctrl+S, Esc)
+- XDG autostart on login
 
 </td>
 </tr>
 </table>
 
-## Screenshots
+## Build from source
 
-> *Screenshots coming soon. Run `vaultsign --debug` to see the app with GTK Inspector.*
+VaultSign is a [Wails](https://wails.io) app: Go backend + React/Tailwind frontend.
+
+```bash
+# Prerequisites: Go 1.23+, Node 18+, and the Wails CLI
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+git clone https://github.com/dem0n1337/vaultsign.git
+cd vaultsign
+wails build -tags webkit2_41        # produces build/bin/vaultsign
+```
+
+> On Fedora pass `-tags webkit2_41` (only `webkit2gtk-4.1` is shipped). On
+> distros with `webkit2gtk-4.0`, drop the tag.
+
+For live development with hot-reload: `wails dev -tags webkit2_41`.
 
 ## Installation
 
@@ -96,14 +109,7 @@ Without VaultSign:                    With VaultSign:
 ```bash
 git clone https://github.com/dem0n1337/vaultsign.git
 cd vaultsign
-sudo bash install.sh
-```
-
-The installer will ask where to install (default: `/opt/vaultsign`).
-
-For non-interactive install:
-```bash
-sudo bash install.sh --path /opt/vaultsign
+sudo bash install.sh        # builds if needed, installs to /usr/local/bin
 ```
 
 ### Uninstall
@@ -112,28 +118,42 @@ sudo bash install.sh --path /opt/vaultsign
 sudo bash install.sh --uninstall
 ```
 
-### RPM (Fedora / RHEL)
+### Prebuilt packages (RPM / DEB)
+
+Every tagged release publishes `.rpm` and `.deb` packages (built by GitHub
+Actions, targeting `webkit2gtk-4.1`). Grab them from the
+[Releases page](https://github.com/dem0n1337/vaultsign/releases):
 
 ```bash
-rpmbuild -ba packaging/vaultsign.spec
-sudo dnf install ~/rpmbuild/RPMS/noarch/vaultsign-*.rpm
+# Fedora 41+ / RHEL
+sudo dnf install ./vaultsign-*.rpm
+
+# Ubuntu 24.04+ / Debian
+sudo apt install ./vaultsign_*.deb
 ```
 
-### Flatpak
+> Targets `webkit2gtk-4.1`, so Fedora 41+ and Ubuntu 24.04+. On Ubuntu 22.04
+> (webkit 4.0) build from source without the `webkit2_41` tag.
+
+### Build packages locally
 
 ```bash
-flatpak-builder --install --user build packaging/io.github.dem0n1337.vaultsign.yml
+go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+wails build -tags webkit2_41
+VAULTSIGN_VERSION=3.0.0 nfpm package -f packaging/nfpm.yaml -p rpm -t dist/
+VAULTSIGN_VERSION=3.0.0 nfpm package -f packaging/nfpm.yaml -p deb -t dist/
 ```
 
 ### Dependencies
 
-| Dependency | Package (Fedora) | Package (Ubuntu) |
+**Build:** Go 1.23+, Node 18+, gcc, `webkit2gtk-4.1`/`gtk+-3.0` dev packages.
+
+| Runtime dependency | Package (Fedora) | Package (Ubuntu) |
 |-----------|-----------------|-----------------|
-| Python 3.10+ | `python3` | `python3` |
-| GTK 4 | `gtk4` | `libgtk-4-dev` |
-| libadwaita | `libadwaita` | `libadwaita-1-dev` |
-| GObject Introspection | `python3-gobject` | `python3-gi` |
-| Vault or OpenBao CLI | `vault` or `openbao` | `vault` or `openbao` |
+| WebKitGTK | `webkit2gtk4.1` | `libwebkit2gtk-4.1-0` |
+| GTK 3 | `gtk3` | `libgtk-3-0` |
+
+No Python, no `vault`/`ssh-add` binaries required at runtime.
 
 ## Quick Start
 
@@ -144,27 +164,28 @@ Launch VaultSign:
 vaultsign
 ```
 
-The setup wizard will:
-- Detect if `vault` or `bao` CLI is installed (offers to install if missing)
-- Ask for your Vault server address
-- Configure SSH key path and default role
+Open **Settings** and configure:
+- Your Vault server address
+- SSH key path, OIDC mount, and signer mount
+- The role (type it, or hit refresh to fetch roles from Vault)
 
 ### 2. Authenticate
 
-Click **Authenticate** or press `Ctrl+Enter`. VaultSign will:
+Click **Authenticate**. VaultSign will:
 
-1. Verify prerequisites (CLI, SSH keys, permissions)
-2. Open your browser for OIDC login
-3. Sign your SSH public key via Vault
-4. Add the signed certificate to ssh-agent
-5. Show certificate details with animated countdown
+1. Verify prerequisites (SSH keys, permissions)
+2. Probe Vault reachability (clear message if the VPN is down)
+3. Reuse a valid token, or open your browser for OIDC login (in-app waiting screen)
+4. Sign your SSH public key via the Vault API
+5. Load the signed certificate into ssh-agent
+6. Show certificate details with the animated countdown ring
 
 ### 3. Monitor
 
 VaultSign runs in the background and will:
-- Auto-renew tokens before they expire
 - Send desktop notifications when your certificate is expiring
-- Show remaining time via system tray icon
+- Offer quick re-sign and show/quit actions from the system tray
+- Show remaining time via the countdown ring
 
 ## Configuration
 
@@ -180,15 +201,15 @@ VaultSign supports multiple profiles for different Vault servers or roles:
   "profiles": {
     "production": {
       "vault_addr": "https://vault.company.com:8200/",
-      "vault_cli_path": "vault",
       "ssh_key_path": "~/.ssh/id_ed25519",
+      "oidc_mount": "oidc",
       "ssh_signer_path": "ssh-client-signer",
       "role": "engineer"
     },
     "staging": {
       "vault_addr": "https://vault-staging.company.com:8200/",
-      "vault_cli_path": "vault",
       "ssh_key_path": "~/.ssh/id_ed25519",
+      "oidc_mount": "oidc",
       "ssh_signer_path": "ssh-client-signer",
       "role": "admin"
     }
@@ -202,29 +223,27 @@ VaultSign supports multiple profiles for different Vault servers or roles:
 | Setting | Description | Default |
 |---------|------------|---------|
 | `vault_addr` | Vault/OpenBao server URL | `https://vault.example.com:8200/` |
-| `vault_cli_path` | Path to vault/bao binary | `vault` |
 | `ssh_key_path` | SSH private key path | `~/.ssh/id_ed25519` |
+| `oidc_mount` | Vault OIDC auth mount | `oidc` |
 | `ssh_signer_path` | Vault SSH signer mount | `ssh-client-signer` |
 | `role` | OIDC role name | *(empty)* |
 | `show_tray` | Enable tray icon | `true` |
 | `autostart` | Start at login | `true` |
 | `expiry_warn_minutes` | Warning threshold | `15` |
 
-## Keyboard Shortcuts
+## CLI
 
-| Shortcut | Action |
-|----------|--------|
-| `Ctrl+Enter` | Authenticate |
-| `Ctrl+S` | Save settings |
-| `Ctrl+L` | Copy log to clipboard |
-| `Escape` | Cancel authentication |
-
-## CLI Flags
+VaultSign doubles as a headless CLI (handy for scripts/SSH config):
 
 ```bash
-vaultsign                # Normal launch
-vaultsign --minimize     # Start minimized to tray
-vaultsign --debug        # Enable GTK Inspector + verbose logging
+vaultsign            # Launch the GUI
+vaultsign auth       # Run the full auth + sign flow headlessly
+vaultsign status     # Print current token TTL and policies
+vaultsign version    # Print version
+
+# Flags for auth/status:
+#   --profile NAME    use a specific config profile
+#   --role NAME       override the role
 ```
 
 ## Troubleshooting
@@ -236,14 +255,10 @@ VaultSign needs `vault` or `bao` CLI in your PATH. Install via your package mana
 VaultSign auto-fixes SSH key permissions to `0600` if they're too open. If this keeps happening, check if another tool is changing permissions.
 
 ### "OIDC login timed out"
-The browser-based login has a 5-minute timeout. Make sure your browser opened the Vault login page. Check firewall/proxy settings.
+The browser-based login has a 5-minute timeout. Make sure your browser opened the Vault login page. Use **Cancel** on the in-app screen to abort sooner. Check firewall/proxy settings.
 
-### Text not visible (Fedora/GNOME)
-If text appears invisible, check for custom GTK4 CSS overrides:
-```bash
-cat ~/.config/gtk-4.0/gtk.css
-```
-Remove or fix any `color: #333333` rules that conflict with dark theme.
+### "Vault unreachable" / `no such host`
+Usually the corporate VPN is not connected. VaultSign probes reachability before launching the browser and reports this explicitly.
 
 ### Logs
 Application logs are stored at `~/.local/share/vaultsign/vaultsign.log` with automatic rotation (1MB, 3 backups).
@@ -251,14 +266,17 @@ Application logs are stored at `~/.local/share/vaultsign/vaultsign.log` with aut
 ## Architecture
 
 ```
-vaultsign_gui.py      GTK4/libadwaita UI (NavigationView, Cairo ring)
-vault_backend.py      Subprocess wrapper for vault/bao CLI operations
-config.py             JSON config with profiles, migration, history
-cert_utils.py         SSH certificate parsing (ssh-keygen -L)
-tray.py               Certificate expiry monitor + desktop notifications
-tray_helper.py        AppIndicator3 system tray icon
-updater.py            GitHub release checker
-logger.py             Rotating file logger with token redaction
+main.go                 Wails entrypoint + CLI router + single-instance lock
+app.go                  Wails-bound methods (config, auth events, status, cert, notify)
+cli.go                  Headless CLI (auth / status / version)
+tray.go                 System-tray icon (StatusNotifierItem)
+autostart.go            XDG autostart desktop entry
+internal/config         JSON config: profiles, history (0600)
+internal/vault          Native Vault API client: login, sign, token, roles, cert
+internal/oidc           OIDC browser flow + localhost:8250 callback server
+internal/sshagent       Native ssh-agent client (x/crypto/ssh/agent)
+internal/logf           Rotating file logger with token redaction
+frontend/               React + Tailwind UI (Vite), embedded into the binary
 ```
 
 ## License
