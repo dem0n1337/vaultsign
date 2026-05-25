@@ -1,0 +1,1 @@
+/home/jakubdemovic/Workdir/01_personal/vaultsign/frontend/src/App.tsx

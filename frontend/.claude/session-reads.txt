@@ -1,0 +1,4 @@
+/home/jakubdemovic/Workdir/01_personal/vaultsign/frontend/vite.config.ts
+/home/jakubdemovic/Workdir/01_personal/vaultsign/frontend/src/style.css
+/home/jakubdemovic/Workdir/01_personal/vaultsign/frontend/index.html
+/home/jakubdemovic/Workdir/01_personal/vaultsign/frontend/src/main.tsx
