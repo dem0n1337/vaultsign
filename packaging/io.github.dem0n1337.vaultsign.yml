@@ -1,7 +1,15 @@
+# Flatpak manifest for the Go/Wails build of VaultSign.
+#
+# NOTE: this builds with network access (Go modules + npm). That is fine for
+# local/CI builds (`flatpak-builder --install build-dir <manifest>`), but a
+# Flathub submission requires vendored Go modules and an offline npm cache.
 app-id: io.github.dem0n1337.vaultsign
 runtime: org.gnome.Platform
 runtime-version: '46'
 sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.golang
+  - org.freedesktop.Sdk.Extension.node18
 command: vaultsign
 finish-args:
   - --share=ipc
@@ -12,22 +20,23 @@ finish-args:
   - --talk-name=org.freedesktop.Notifications
   - --filesystem=~/.ssh:rw
   - --filesystem=~/.config/vaultsign:create
+  - --filesystem=~/.vault-token:rw
 modules:
   - name: vaultsign
     buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/golang/bin:/usr/lib/sdk/node18/bin
+      build-args:
+        - --share=network
     build-commands:
-      - mkdir -p /app/share/vaultsign
-      - cp *.py /app/share/vaultsign/
-      - cp vaultsign /app/share/vaultsign/
-      - chmod +x /app/share/vaultsign/vaultsign
-      - mkdir -p /app/bin
-      - ln -sf /app/share/vaultsign/vaultsign /app/bin/vaultsign
-      - mkdir -p /app/share/applications
-      - cp vaultsign.desktop /app/share/applications/io.github.dem0n1337.vaultsign.desktop
-      - mkdir -p /app/share/icons/hicolor/scalable/apps
-      - cp icons/vaultsign.svg /app/share/icons/hicolor/scalable/apps/io.github.dem0n1337.vaultsign.svg
-      - mkdir -p /app/share/metainfo
-      - cp packaging/io.github.dem0n1337.vaultsign.metainfo.xml /app/share/metainfo/
+      - export GOPATH=/run/build/vaultsign/go
+      - export PATH=$PATH:$GOPATH/bin
+      - go install github.com/wailsapp/wails/v2/cmd/wails@v2.12.0
+      - wails build -tags webkit2_41 -clean
+      - install -Dm755 build/bin/vaultsign /app/bin/vaultsign
+      - install -Dm644 vaultsign.desktop /app/share/applications/io.github.dem0n1337.vaultsign.desktop
+      - install -Dm644 icons/vaultsign.svg /app/share/icons/hicolor/scalable/apps/io.github.dem0n1337.vaultsign.svg
+      - install -Dm644 packaging/io.github.dem0n1337.vaultsign.metainfo.xml /app/share/metainfo/io.github.dem0n1337.vaultsign.metainfo.xml
     sources:
       - type: dir
         path: ..

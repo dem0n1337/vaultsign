@@ -16,6 +16,12 @@
   <url type="bugtracker">https://github.com/dem0n1337/vaultsign/issues</url>
   <content_rating type="oars-1.1" />
   <releases>
+    <release version="3.0.0" date="2026-05-25">
+      <description><p>Rewritten from Python/GTK4 to Go (Wails + React) for a modern UI and
+      a single binary. Native Vault API and ssh-agent integration, animated certificate
+      expiry ring, in-app authentication screen, desktop notifications, system tray,
+      and a headless CLI (auth/status).</p></description>
+    </release>
     <release version="2.0.0" date="2026-03-20">
       <description><p>Major release with v2 enhancements: config profiles, certificate
       expiry monitoring, token auto-renewal, theme toggle, keyboard shortcuts,
