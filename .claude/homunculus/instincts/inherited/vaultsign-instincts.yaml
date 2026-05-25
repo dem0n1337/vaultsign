@@ -1,0 +1,358 @@
+# Instincts generated from https://github.com/dem0n1337/vaultsign
+# Generated: 2026-05-25T18:33:06.113Z
+# Version: 2.0
+# NOTE: This file supplements (does not replace) any existing curated instincts.
+# High-confidence manually curated instincts should be preserved alongside these.
+
+---
+id: vaultsign-commit-conventional
+trigger: "when writing a commit message"
+confidence: 0.85
+domain: git
+source: repo-analysis
+source_repo: https://github.com/dem0n1337/vaultsign
+---
+
+# Vaultsign Commit Conventional
+
+## Action
+
+Use conventional commit format with prefixes: feat, ci
+
+## Evidence
+
+- 2 commits analyzed
+- Detected conventional commit pattern
+- Examples: feat: VaultSign 3.0 — rewrite from Python/GTK4 to Go (Wails + React), ci: release RPM + DEB via GitHub Actions (nfpm), drop Flatpak
+
+---
+id: vaultsign-commit-length
+trigger: "when writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: https://github.com/dem0n1337/vaultsign
+---
+
+# Vaultsign Commit Length
+
+## Action
+
+Write moderate-length commit messages (~65 characters)
+
+## Evidence
+
+- Average commit message length: 65 chars
+- Based on 2 commits
+
+---
+id: vaultsign-naming-files
+trigger: "when creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/dem0n1337/vaultsign
+---
+
+# Vaultsign Naming Files
+
+## Action
+
+Use camelCase naming convention
+
+## Evidence
+
+- Analyzed file naming patterns in repository
+- Dominant pattern: camelCase
+
+---
+id: vaultsign-import-relative
+trigger: "when importing modules"
+confidence: 0.75
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/dem0n1337/vaultsign
+---
+
+# Vaultsign Import Relative
+
+## Action
+
+Use relative imports for project files
+
+## Evidence
+
+- Import analysis shows relative import pattern
+- Example: import { x } from '../lib/x'
+
+---
+id: vaultsign-export-style
+trigger: "when exporting from a module"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: https://github.com/dem0n1337/vaultsign
+---
+
+# Vaultsign Export Style
+
+## Action
+
+Prefer named exports
+
+## Evidence
+
+- Export pattern analysis
+- Dominant style: named
+
+---
+id: vaultsign-test-separate
+trigger: "when writing tests"
+confidence: 0.8
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/dem0n1337/vaultsign
+---
+
+# Vaultsign Test Separate
+
+## Action
+
+Place tests in the tests/ or __tests__/ directory, mirroring src structure
+
+## Evidence
+
+- Separate test directory pattern detected
+- Tests live in dedicated test folders
+
+---
+id: vaultsign-test-naming
+trigger: "when creating a test file"
+confidence: 0.85
+domain: testing
+source: repo-analysis
+source_repo: https://github.com/dem0n1337/vaultsign
+---
+
+# Vaultsign Test Naming
+
+## Action
+
+Name test files using the pattern: *.test.ts
+
+## Evidence
+
+- File pattern: *.test.ts
+- Consistent across test files
+
+---
+id: vaultsign-instinct-file-naming
+trigger: "When creating a new file"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct File Naming
+
+## Action
+
+Name the file using camelCase
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.files
+
+---
+id: vaultsign-instinct-function-naming
+trigger: "When defining a new function"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Function Naming
+
+## Action
+
+Name the function using camelCase
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.functions
+
+---
+id: vaultsign-instinct-class-naming
+trigger: "When defining a new class"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Class Naming
+
+## Action
+
+Name the class using PascalCase
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.classes
+
+---
+id: vaultsign-instinct-constant-naming
+trigger: "When defining a constant"
+confidence: 0.8
+domain: code-style
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Constant Naming
+
+## Action
+
+Name the constant using SCREAMING_SNAKE_CASE
+
+## Evidence
+
+- Pattern in codeStyle.namingConventions.constants
+
+---
+id: vaultsign-instinct-import-style
+trigger: "When importing modules"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Import Style
+
+## Action
+
+Use relative imports
+
+## Evidence
+
+- Pattern in codeStyle.importStyle
+
+---
+id: vaultsign-instinct-export-style
+trigger: "When exporting modules or functions"
+confidence: 0.7
+domain: code-style
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Export Style
+
+## Action
+
+Use named exports
+
+## Evidence
+
+- Pattern in codeStyle.exportStyle
+
+---
+id: vaultsign-instinct-test-file-pattern
+trigger: "When creating a test file"
+confidence: 0.9
+domain: testing
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Test File Pattern
+
+## Action
+
+Name the file with the pattern *.test.ts
+
+## Evidence
+
+- Pattern in testing.filePattern
+
+---
+id: vaultsign-instinct-test-type
+trigger: "When writing tests"
+confidence: 0.7
+domain: testing
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Test Type
+
+## Action
+
+Write unit tests
+
+## Evidence
+
+- Pattern in testing.testTypes
+
+---
+id: vaultsign-instinct-commit-prefix
+trigger: "When writing a commit message"
+confidence: 0.9
+domain: git
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Commit Prefix
+
+## Action
+
+Start the message with a conventional prefix (e.g., 'feat:' or 'ci:')
+
+## Evidence
+
+- Seen in commit: feat: VaultSign 3.0 — rewrite from Python/GTK4 to Go (Wails + React)
+- Seen in commit: ci: release RPM + DEB via GitHub Actions (nfpm), drop Flatpak
+
+---
+id: vaultsign-instinct-commit-length
+trigger: "When writing a commit message"
+confidence: 0.6
+domain: git
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Commit Length
+
+## Action
+
+Keep the commit message concise, around 65 characters on average
+
+## Evidence
+
+- Pattern in commits.averageLength
+
+---
+id: vaultsign-instinct-commit-type
+trigger: "When committing code related to features or CI"
+confidence: 0.8
+domain: git
+source: repo-analysis
+source_repo: dem0n1337/vaultsign
+---
+
+# Vaultsign Instinct Commit Type
+
+## Action
+
+Use 'feat:' for features and 'ci:' for CI changes in the commit prefix
+
+## Evidence
+
+- Seen in commit: feat: VaultSign 3.0 — rewrite from Python/GTK4 to Go (Wails + React)
+- Seen in commit: ci: release RPM + DEB via GitHub Actions (nfpm), drop Flatpak
+
