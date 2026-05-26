@@ -17,3 +17,5 @@
 /home/jakubdemovic/Workdir/01_personal/vaultsign/vaultsign.1
 /home/jakubdemovic/Workdir/01_personal/vaultsign/.github/workflows/release.yml
 /home/jakubdemovic/Workdir/01_personal/vaultsign/packaging/nfpm.yaml
+/home/jakubdemovic/.claude/projects/-home-jakubdemovic-Workdir-01-personal-vaultsign/memory/project_go_rewrite.md
+/home/jakubdemovic/.claude/projects/-home-jakubdemovic-Workdir-01-personal-vaultsign/memory/MEMORY.md
